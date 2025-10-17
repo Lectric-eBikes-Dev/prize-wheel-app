@@ -2,12 +2,32 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const fs = require('fs');
-const path = require('path');
+//const fs = require('fs');
+//const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
+//const DATA_FILE = path.join(__dirname, 'data.json');
+
+const { MongoClient } = require('mongodb');
+
+// Get the connection string from your Render environment variables
+const MONGODB_URI = process.env.MONGODB_URI; 
+const client = new MongoClient(MONGODB_URI);
+let spinsCollection;
+
+// Function to connect to the database when the server starts
+async function connectToDatabase() {
+  try {
+    await client.connect();
+    const database = client.db('prizeWheelDB'); // You can name your database anything
+    spinsCollection = database.collection('spins');
+    console.log('Successfully connected to MongoDB Atlas!');
+  } catch (err) {
+    console.error('Failed to connect to MongoDB', err);
+    process.exit(1); // Exit if we can't connect
+  }
+}
 
 // --- 1. Authentication Setup ---
 // IMPORTANT: Replace with your actual credentials from Google Cloud
@@ -86,6 +106,7 @@ const writeData = (data) => {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 };
 
+/*
 app.post('/api/spins', isLoggedIn, (req, res) => {
   const data = readData();
   const newSpin = req.body;
@@ -104,6 +125,34 @@ app.post('/api/check', isLoggedIn, (req, res) => {
     const hit = data.spins.find(s => s.day === today && s.email === userEmail);
     res.json({ already: !!hit, record: hit || null });
 });
+*/
+
+app.post('/api/spins', isLoggedIn, async (req, res) => {
+  try {
+    const newSpin = req.body;
+    newSpin.user = req.user.displayName;
+    newSpin.email = req.user.emails[0].value;
+    
+    await spinsCollection.insertOne(newSpin);
+    res.json(newSpin);
+  } catch (error) {
+    console.error('Failed to save spin:', error);
+    res.status(500).json({ error: 'Failed to save spin' });
+  }
+});
+
+app.post('/api/check', isLoggedIn, async (req, res) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const userEmail = req.user.emails[0].value;
+
+    const hit = await spinsCollection.findOne({ day: today, email: userEmail });
+    res.json({ already: !!hit, record: hit || null });
+  } catch (error) {
+    console.error('Failed to check limit:', error);
+    res.status(500).json({ error: 'Failed to check limit' });
+  }
+});
 
 
 // --- 5. Serve the Frontend ---
@@ -112,6 +161,9 @@ app.use(isLoggedIn, express.static(path.join(__dirname, 'public')));
 
 
 // --- 6. Start the Server ---
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// Connect to DB and then start the server
+connectToDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
 });
