@@ -1,12 +1,12 @@
 const express = require('express');
-app.set('trust proxy', 1);
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 //const fs = require('fs');
 const path = require('path');
 
-const app = express();
+const app = express(); // First, create the app
+app.set('trust proxy', 1); // THEN, configure it. This is the correct order. ✅
 const PORT = process.env.PORT || 3000;
 //const DATA_FILE = path.join(__dirname, 'data.json');
 
