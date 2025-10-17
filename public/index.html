@@ -306,7 +306,7 @@
         <form class="form" id="entryForm" autocomplete="off">
           <div class="field">
             <label for="name">Your Name</label>
-            <input id="name" name="name" type="text" placeholder="e.g., Alex R." required />
+            <input id="name" name="name" type="text" placeholder="Loading user..." readonly required />
           </div>
           <div class="field">
             <label for="guess">Your Guess (1–24)</label>
@@ -446,29 +446,31 @@ function setupDebugFeatures() {
   const clearBtn = $('#clearDataBtn');
   clearBtn.style.display = 'inline-block'; // Make the button visible
 
+  // public/index.html -> Inside the setupDebugFeatures function
+
   clearBtn.addEventListener('click', async () => {
-    const isConfirmed = confirm('Are you sure you want to clear ALL spin data from the Google Sheet and your browser? This cannot be undone.');
+	const isConfirmed = confirm('Are you sure you want to clear ALL spin data from the database? This cannot be undone.');
 
-    if (isConfirmed) {
-      try {
-        console.log('Clearing local storage...');
-        localStorage.removeItem(CONFIG.GAME_KEY);
+	if (isConfirmed) {
+		try {
+		// Clear the backend database
+		const response = await fetch('/api/admin/reset');
+		if (!response.ok) {
+			throw new Error('Server responded with an error.');
+		}
+		const result = await response.json();
+		
+		// Clear local browser storage too
+		localStorage.removeItem(CONFIG.GAME_KEY);
 
-        if (CONFIG.BACKEND_URL) {
-          console.log('Clearing backend data...');
-          const result = await backend('GET', '/admin/reset');
-          alert(`Backend cleared successfully. Removed ${result.cleared} records.`);
-        } else {
-          alert('Local storage cleared.');
-        }
-
-        location.reload(); // Reload the page for a fresh start
-      } catch (err) {
-        console.error('Failed to clear data:', err);
-        alert('An error occurred while trying to clear data. Check the console.');
-      }
-    }
-  });
+		alert(`Backend cleared successfully. Removed ${result.cleared} records.`);
+		location.reload(); // Reload the page for a fresh start
+		} catch (err) {
+		console.error('Failed to clear data:', err);
+		alert('An error occurred while trying to clear data. Check the console.');
+		}
+	}
+});
 }
 
 // =====================
@@ -944,6 +946,22 @@ document.getElementById('leaderBtn').addEventListener('click', openBoard);
 document.getElementById('boardClose').addEventListener('click', ()=>$('#board').close());
 //document.getElementById('historyBtn').addEventListener('click', () => { dpk.focus(); });
 document.getElementById('soundToggle').addEventListener('change', e=>{ soundOn = e.target.checked; if(soundOn) initAudio(); });
+
+// ADD THIS BLOCK to fetch the user's info
+fetch('/api/user')
+  .then(res => res.json())
+  .then(user => {
+    const nameInput = document.getElementById('name');
+    if (user && user.name) {
+      nameInput.value = user.name;
+    } else {
+      nameInput.value = 'Could not load user';
+    }
+  })
+  .catch(err => {
+    console.error('Error fetching user:', err);
+    document.getElementById('name').value = 'Error loading user';
+  });
 
 drawWheel(0);
 updateFeed();

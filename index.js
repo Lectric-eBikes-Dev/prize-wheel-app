@@ -100,6 +100,29 @@ app.get('/logout', (req, res) => {
 // --- 4. API Routes (Your old Apps Script logic, now in Express) ---
 app.use(express.json()); // Middleware to parse JSON bodies
 
+// This route sends the logged-in user's info to the frontend
+app.get('/api/user', isLoggedIn, (req, res) => {
+  if (req.user) {
+    res.json({
+      name: req.user.displayName,
+      email: req.user.emails[0].value
+    });
+  } else {
+    res.status(401).json({ error: 'User not authenticated' });
+  }
+});
+
+// This endpoint clears all documents from the spins collection.
+app.get('/api/admin/reset', isLoggedIn, async (req, res) => {
+  try {
+    const deleteResult = await spinsCollection.deleteMany({}); // Deletes everything in the collection
+    res.json({ ok: true, cleared: deleteResult.deletedCount });
+  } catch (error) {
+    console.error('Failed to clear data:', error);
+    res.status(500).json({ error: 'Failed to clear data' });
+  }
+});
+
 // Function to read data from the JSON file
 const readData = () => {
   if (!fs.existsSync(DATA_FILE)) {
