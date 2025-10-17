@@ -3,7 +3,7 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 //const fs = require('fs');
-//const path = require('path');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +34,12 @@ async function connectToDatabase() {
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const SESSION_SECRET = process.env.SESSION_SECRET;
+
+// ADD THESE THREE LINES FOR DEBUGGING
+console.log('--- Checking Environment Variables ---');
+console.log('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID ? 'Loaded' : 'NOT FOUND');
+console.log('SESSION_SECRET:', SESSION_SECRET ? 'Loaded' : 'NOT FOUND');
+console.log('------------------------------------');
 
 // Allowed email domain
 const ALLOWED_DOMAIN = 'lectricebikes.com';
