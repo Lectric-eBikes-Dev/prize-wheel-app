@@ -1,0 +1,15 @@
+{
+  "name": "prize-wheel-app",
+  "version": "1.0.0",
+  "description": "Prize Wheel with Google Auth",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "passport": "^0.6.0",
+    "passport-google-oauth20": "^2.0.0"
+  }
+}
