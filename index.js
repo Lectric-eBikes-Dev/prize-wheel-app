@@ -31,9 +31,9 @@ async function connectToDatabase() {
 
 // --- 1. Authentication Setup ---
 // IMPORTANT: Replace with your actual credentials from Google Cloud
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
-const GOOGLE_CLIENT_SECRET = 'YOUR_GOOGLE_CLIENT_SECRET';
-const SESSION_SECRET = 'a-very-secret-key-change-this'; // Change this to a random string
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET;
 
 // Allowed email domain
 const ALLOWED_DOMAIN = 'lectricebikes.com';
