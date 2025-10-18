@@ -400,21 +400,44 @@
 		}
 	}
 
-    function onSpinStop() {
-      const { name, guess } = pendingResult;
-      const landed = segmentFromAngle(angle) + 1;
-      const win = (landed === guess);
-      const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() };
-      
-      api('POST', '/spins', record).then(savedRecord => {
-        allSpinsCache.push(savedRecord);
-        $('#dayPicker').value = todayKey();
-        updateFeed();
-      }).catch(e => console.warn('Backend save failed', e));
-      
-      if (win) { celebrate(landed); } else { showLossOverlay(`Landed on ${landed}.`); }
-      pendingResult = null;
-    }
+    // Replace the entire onSpinStop function
+	async function onSpinStop() { // Make this async to await the final limit check
+		const { name, guess } = pendingResult;
+		const landed = segmentFromAngle(angle) + 1;
+		const win = (landed === guess);
+		const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() };
+
+		// Save the spin result
+		api('POST', '/spins', record).then(savedRecord => {
+			allSpinsCache.push(savedRecord);
+			$('#dayPicker').value = todayKey();
+			updateFeed(); // Refresh the feed
+		}).catch(e => console.warn('Backend save failed', e));
+
+		// Show win/loss overlay
+		if (win) { celebrate(landed); } else { showLossOverlay(`Landed on ${landed}.`); }
+		pendingResult = null;
+
+		// --- Button Reset Logic ---
+		spinBtn.textContent = 'SPIN'; // Reset text immediately
+		spinBtn.disabled = false; // Temporarily re-enable
+
+		// Check limit again AFTER spin completes to potentially disable button for next time
+		try {
+			const alreadyRecord = await limitCheck(); // Check if they've now reached the limit
+			if (alreadyRecord && !CONFIG.DEBUG) { // If they spun AND debug is OFF
+				spinBtn.disabled = true; // Disable the button
+				showLimitMessage(alreadyRecord); // Show the limit message again
+			} else {
+				spinBtn.disabled = false; // Ensure button is enabled if in debug or check failed
+			}
+		} catch (err) {
+			console.error("Post-spin limit check failed:", err);
+			// Decide if button should be disabled even if check fails, e.g., disable it
+			// spinBtn.disabled = true; 
+			// alert("Could not verify remaining spins."); 
+		}
+	}
     
     function hideOverlays() {
       $('#winOverlay').classList.remove('show');
