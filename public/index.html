@@ -196,7 +196,7 @@
       COLORS: ["#0e0f12", "#1f66ff", "#e9eef7"],
       BORDER_COLOR: "#dbe7ff",
       TICK_SOUND_GAIN: 0.25,
-      DEBUG: false
+      DEBUG: new URLSearchParams(window.location.search).get('debug') === 'true'
     };
 
     // Global state and element references
