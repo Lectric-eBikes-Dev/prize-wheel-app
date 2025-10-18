@@ -212,6 +212,16 @@
       return res.json();
     }
     
+    // THIS FUNCTION WAS MISSING
+    function fingerprint() {
+      const data = navigator.userAgent + (Intl.DateTimeFormat().resolvedOptions().timeZone || "");
+      let h = 0;
+      for (let i = 0; i < data.length; i++) {
+        h = ((h << 5) - h) + data.charCodeAt(i); h |= 0;
+      }
+      return "fp_" + Math.abs(h);
+    }
+    
     const canvas = $('#wheel');
     const ctx = canvas.getContext('2d');
     const SEG = CONFIG.SEGMENTS;
@@ -387,7 +397,7 @@
       setTimeout(() => el.classList.remove('show'), 4000);
     }
 
-    // THIS IS THE CORRECTED FUNCTION
+    // CORRECTED limitCheck FUNCTION
     async function limitCheck() {
       if (CONFIG.DEBUG) return null;
       // This will now throw an error on failure, which is caught by startSpin
