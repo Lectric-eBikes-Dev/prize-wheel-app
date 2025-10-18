@@ -81,9 +81,10 @@
     
     /* Styles for PNG Trophy */
     .win-container{position:relative; text-align:center; filter:drop-shadow(0 10px 25px rgba(0,0,0,0.5))}
-    .trophy-image{width:min(250px, 60vw); height:auto;}
-    .win-number-text{position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); font-family:Inter,sans-serif; font-size:5em; font-weight:900; color:#4A2700;}
-    .win-title-text{margin-top:-20px; font-size:3em; color:white; font-weight:800; text-shadow:2px 2px 8px #000;}
+    .trophy-image{width:min(520px, 60vw); height:auto;}
+    .win-number-text{position:absolute; top:27%; left:50%; transform:translate(-50%,-50%); font-family:Inter,sans-serif; font-size:6.5em; font-weight:900; color:#ffffff; text-shadow: 3px 3px 33px yellow;     -webkit-text-stroke-width: 3px;
+    -webkit-text-stroke-color: #b57a1c;}
+    .win-title-text{margin-top:-20px; font-size:3em; color:white; font-weight:800; text-shadow:2px 2px 8px #000; text-shadow: 3px 3px 56px #ffffff;}
 
   </style>
 </head>
@@ -169,19 +170,26 @@
   </dialog>
 
   <script>
-    if (new URLSearchParams(window.location.search).get('debug') === 'true') {
-      sessionStorage.setItem('debugMode', 'true');
-    }
+    // Handle the debug flag from the URL to turn it on or off
+	const urlParams = new URLSearchParams(window.location.search);
+	if (urlParams.has('debug')) {
+		if (urlParams.get('debug') === 'true') {
+			sessionStorage.setItem('debugMode', 'true');
+		} else {
+			// If debug is not 'true' (e.g., 'false' or empty), remove the flag.
+			sessionStorage.removeItem('debugMode');
+		}
+	}
 
-    const CONFIG = {
-      BACKEND_URL: "/api",
-      GAME_KEY: "carnival_wheel_v1",
-      SEGMENTS: 24,
-      COLORS: ["#0e0f12", "#1f66ff", "#e9eef7"],
-      BORDER_COLOR: "#dbe7ff",
-      TICK_SOUND_GAIN: 0.25,
-      DEBUG: sessionStorage.getItem('debugMode') === 'true'
-    };
+	const CONFIG = {
+		BACKEND_URL: "/api",
+		GAME_KEY: "carnival_wheel_v1",
+		SEGMENTS: 24,
+		COLORS: ["#0e0f12", "#1f66ff", "#e9eef7"],
+		BORDER_COLOR: "#dbe7ff",
+		TICK_SOUND_GAIN: 0.25,
+		DEBUG: sessionStorage.getItem('debugMode') === 'true'
+	};
 
     // Global state and element references
     let spinActive = false, isHolding = false, holdStart = 0, angle = 0, spinPlan = null, tickIndex = 0;
