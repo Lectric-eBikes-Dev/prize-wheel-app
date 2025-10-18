@@ -399,11 +399,13 @@
 
     // CORRECTED limitCheck FUNCTION
     async function limitCheck() {
-      if (CONFIG.DEBUG) return null;
-      // This will now throw an error on failure, which is caught by startSpin
-      const res = await api('POST', '/check');
-      return res.already ? res.record : null;
-    }
+		if (CONFIG.DEBUG) return null;
+		
+		// This version will let any server errors be caught by the startSpin function,
+		// which correctly stops the spin process.
+		const res = await api('POST', '/check');
+		return res.already ? res.record : null;
+	}
 
     function showLimitMessage(rec) {
       $('#limitMsg').innerHTML = `You already spun today at <strong>${new Date(rec.ts).toLocaleTimeString()}</strong>. Result: <strong>${rec.landed}</strong> (your guess: ${rec.guess}).`;
