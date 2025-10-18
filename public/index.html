@@ -348,28 +348,40 @@
     }
 
     function startSpin() {
-      if (spinActive) return;
-      const name = $('#name').value.trim();
-      const guess = Number($('#guess').value);
-      if (!name || !guess || name === 'Loading user...') {
-        return alert('Please wait for user info to load.');
-      }
-      
-      limitCheck().then(already => {
-        if (already) return showLimitMessage(already);
-        const power = isHolding ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5;
-        const turns = 3 + Math.floor(Math.random() * 3);
-        const randOffset = Math.random() * Math.PI * 2;
-        const duration = 3000 + 3000 * power;
-        spinPlan = { t0: performance.now(), dur: duration, a0: angle, a1: angle + (Math.PI * 2 * turns) + randOffset };
-        spinActive = true;
-        tickIndex = segmentFromAngle(angle);
-        pendingResult = { name, guess };
-      }).catch(err => {
-        console.error("Limit check failed:", err);
-        alert('An error occurred. Please try again.');
-      });
-    }
+		if (spinActive) return;
+		const name = $('#name').value.trim();
+		const guess = Number($('#guess').value);
+		if (!name || !guess || name === 'Loading user...') {
+			return alert('Please wait for user info to load.');
+		}
+		
+		// Call the updated limitCheck
+		limitCheck().then(alreadyRecord => { 
+			// Log the result received from limitCheck
+			console.log('Result from limitCheck:', alreadyRecord); 
+
+			// If alreadyRecord is truthy (meaning a record was returned)
+			if (alreadyRecord) { 
+			console.log('Spin blocked.');
+			return showLimitMessage(alreadyRecord); // Block the spin
+			}
+			
+			// If alreadyRecord is null, proceed with the spin
+			console.log('Spin allowed, proceeding...');
+			const power = isHolding ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5;
+			const turns = 3 + Math.floor(Math.random() * 3);
+			const randOffset = Math.random() * Math.PI * 2;
+			const duration = 3000 + 3000 * power;
+			spinPlan = { t0: performance.now(), dur: duration, a0: angle, a1: angle + (Math.PI * 2 * turns) + randOffset };
+			spinActive = true;
+			tickIndex = segmentFromAngle(angle);
+			pendingResult = { name, guess };
+
+		}).catch(err => { // Catch errors from limitCheck (like network errors)
+			console.error("Limit check failed, spin blocked:", err);
+			alert('Could not verify spin limit. Please try again.'); // Inform user, block spin
+		});
+	}
 
     function onSpinStop() {
       const { name, guess } = pendingResult;
@@ -413,12 +425,27 @@
     }
 
     // CORRECTED limitCheck FUNCTION
-    async function limitCheck() {
-      if (CONFIG.DEBUG) return null;
-      // This will now throw an error on failure, which is caught by startSpin
-      const res = await api('POST', '/check');
-      return res.already ? res.record : null;
-    }
+	async function limitCheck() {
+	// Explicitly log the debug status when the check starts
+	console.log('Checking spin limit. Debug mode:', CONFIG.DEBUG); 
+	
+	if (CONFIG.DEBUG) {
+		console.log('Debug mode ON, allowing spin.');
+		return null; // Allow spin in debug mode
+	}
+	
+	// Make the API call. If this fails, the error will propagate up to startSpin
+	const res = await api('POST', '/check'); 
+	console.log('Backend /check response:', res); // Log the response for debugging
+
+	if (res.already) {
+		console.log('User has already spun today.');
+		return res.record; // Return the record to block the spin
+	} else {
+		console.log('User has not spun today, allowing spin.');
+		return null; // Allow the spin
+	}
+	}
 
     function showLimitMessage(rec) {
       $('#limitMsg').innerHTML = `You already spun today at <strong>${new Date(rec.ts).toLocaleTimeString()}</strong>. Result: <strong>${rec.landed}</strong> (your guess: ${rec.guess}).`;
