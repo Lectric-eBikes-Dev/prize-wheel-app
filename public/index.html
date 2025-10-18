@@ -27,6 +27,14 @@
     .brand h1{font-size:28px; margin:0; letter-spacing:.5px}
     .btn{appearance:none; border:1px solid var(--border); background:#0f1520; color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; transition:.2s all;}
     .btn:hover{transform:translateY(-1px); background:#121a2a}
+	/* Add this rule to your <style> block */
+	.btn:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+		background: #555; /* Darker background */
+		border-color: #444;
+		box-shadow: none; /* Remove hover/active effects */
+	}
     .btn.primary{background:linear-gradient(180deg,#1c72ff,#1652ff); border-color:#1c52e6; box-shadow:0 6px 18px rgba(28,114,255,.35)}
     .card{background:linear-gradient(180deg,#0e1420,#0c111a); border:1px solid var(--border); border-radius:18px; padding:14px; box-shadow:0 16px 40px rgba(0,0,0,.35);}
     .stage{display:grid; grid-template-columns: minmax(280px,520px); justify-content:center; gap:14px}
@@ -368,10 +376,10 @@
 
 			// Block if already spun (and not in debug mode)
 			if (alreadyRecord && !CONFIG.DEBUG) { 
-			console.log('Spin blocked: Limit reached.');
-			showLimitMessage(alreadyRecord);
-			spinBtn.textContent = 'SPUN TODAY'; // Keep disabled, update text
-			return; 
+				console.log('Spin blocked: Limit reached.');
+				showLimitMessage(alreadyRecord);
+				spinBtn.textContent = 'TRY AGAIN TOMORROW'; // Keep disabled, update text
+				return; 
 			}
 
 			// --- Spin is Allowed ---
@@ -598,7 +606,7 @@
 			if (alreadyRecord && !CONFIG.DEBUG) {
 				showLimitMessage(alreadyRecord);
 				spinBtn.disabled = true;
-				spinBtn.textContent = 'SPUN TODAY';
+				spinBtn.textContent = 'TRY AGAIN TOMORROW'; // <-- Updated Text
 			} else {
 				spinBtn.disabled = false; // Enable if not spun or in debug
 				spinBtn.textContent = 'SPIN';
@@ -607,7 +615,7 @@
 		.catch(err => {
 			console.error('Error during initial load or limit check:', err);
 			$('#name').value = 'Error loading user';
-			spinBtn.disabled = true; // Disable spin if initial load fails
+			spinBtn.disabled = true;
 			spinBtn.textContent = 'LOAD ERROR';
 			$('#limitMsg').textContent = 'Could not load user data or check spin status.';
 		});
