@@ -169,7 +169,6 @@
   </dialog>
 
   <script>
-    // Check for the debug flag in the URL and save it to the session
     if (new URLSearchParams(window.location.search).get('debug') === 'true') {
       sessionStorage.setItem('debugMode', 'true');
     }
@@ -188,14 +187,19 @@
     let spinActive = false, isHolding = false, holdStart = 0, angle = 0, spinPlan = null, tickIndex = 0;
     let audioCtx = null, soundOn = true;
     let pendingResult = null;
-    let allSpinsCache = []; // Cache for leaderboard and history
+    let allSpinsCache = [];
 
     const $ = sel => document.querySelector(sel);
     const flapperEl = $('#flapper');
     const spinBtn = $('#spinBtn');
     
     // UTILITIES
-    const todayKey = (d = new Date()) => d.toISOString().slice(0, 10);
+    function todayKey(d = new Date()) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
     const nowTs = () => new Date().toISOString();
 
     async function api(method, path, payload) {
@@ -210,8 +214,7 @@
       const data = navigator.userAgent + (Intl.DateTimeFormat().resolvedOptions().timeZone || "");
       let h = 0;
       for (let i = 0; i < data.length; i++) {
-        h = ((h << 5) - h) + data.charCodeAt(i);
-        h |= 0;
+        h = ((h << 5) - h) + data.charCodeAt(i); h |= 0;
       }
       return "fp_" + Math.abs(h);
     }
@@ -275,7 +278,7 @@
       if (spinActive && spinPlan) {
         const { t0, dur, a0, a1 } = spinPlan;
         const p = Math.min(1, (t - t0) / dur);
-        angle = a0 + (a1 - a0) * (1 - Math.pow(1 - p, 3)); // EaseOutCubic
+        angle = a0 + (a1 - a0) * (1 - Math.pow(1 - p, 3));
         const seg = segmentFromAngle(angle);
         if (seg !== tickIndex) {
           tickIndex = seg;
@@ -370,7 +373,7 @@
       
       api('POST', '/spins', record).then(savedRecord => {
         allSpinsCache.push(savedRecord);
-        $('#dayPicker').value = todayKey(); // FIX: Set date picker to current day
+        $('#dayPicker').value = todayKey();
         updateFeed();
       }).catch(e => console.warn('Backend save failed', e));
       
@@ -499,7 +502,6 @@
       });
     }
 
-    // Populate guess options
     const guessSel = $('#guess');
     for (let i = 1; i <= SEG; i++) {
       const opt = document.createElement('option');
@@ -508,7 +510,6 @@
       guessSel.appendChild(opt);
     }
     
-    // Bind events
     $('#dayPicker').value = todayKey();
     $('#dayPicker').addEventListener('change', updateFeed);
     $('#leaderBtn').addEventListener('click', openBoard);
@@ -517,9 +518,8 @@
     spinBtn.addEventListener('mousedown', () => { if (spinActive) return; isHolding = true; holdStart = Date.now(); initAudio(); });
     document.addEventListener('mouseup', () => { if (!isHolding || spinActive) return; isHolding = false; startSpin(); });
     spinBtn.addEventListener('touchstart', e => { e.preventDefault(); if (spinActive) return; isHolding = true; holdStart = Date.now(); initAudio(); }, { passive: false });
-    document.addEventListener('touchend', e => { e.preventDefault(); if (!isHolding || spinActive) return; isHolding = false; startSpin(); }, { passive: false });
+    document.addEventListener('touchend', e => { e.preventDefault(); if (!isholding || spinActive) return; isHolding = false; startSpin(); }, { passive: false });
     
-    // Initial Load
     fetch('/api/user')
       .then(res => res.json())
       .then(user => {
