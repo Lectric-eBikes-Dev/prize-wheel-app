@@ -84,25 +84,12 @@
     .win-number-text{position:absolute; top:27%; left:50%; transform:translate(-50%,-50%); font-family:Inter,sans-serif; font-size:6.5em; font-weight:900; color:#ffffff; text-shadow: 3px 3px 33px yellow; -webkit-text-stroke-width: 3px; -webkit-text-stroke-color: #b57a1c;}
     .win-title-text{margin-top:-20px; font-size:3em; color:white; font-weight:800; text-shadow:2px 2px 8px #000; text-shadow: 3px 3px 56px #ffffff;}
 
-	.close-button {
-		position: absolute;
-		top: 15px;
-		right: 15px;
-		background: rgba(0,0,0,0.3);
-		color: white;
-		border: none;
-		border-radius: 50%;
-		width: 30px;
-		height: 30px;
-		font-size: 20px;
-		line-height: 30px;
-		text-align: center;
-		cursor: pointer;
-		z-index: 10; /* Ensure it's above other elements in the overlay */
-	}
-	.close-button:hover {
-		background: rgba(0,0,0,0.6);
-	}
+    .close-button {
+      position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.3);
+      color: white; border: none; border-radius: 50%; width: 30px; height: 30px;
+      font-size: 20px; line-height: 30px; text-align: center; cursor: pointer; z-index: 10;
+    }
+    .close-button:hover { background: rgba(0,0,0,0.6); }
   </style>
 </head>
 <body>
@@ -163,7 +150,7 @@
   
   <div class="overlay" id="winOverlay" role="dialog" aria-modal="true" aria-label="Winner">
     <div class="win-container">
-	  <button class="close-button" onclick="hideOverlays()" aria-label="Close">&times;</button>
+      <button class="close-button" onclick="hideOverlays()" aria-label="Close">&times;</button>
       <img src="trophy.png" alt="Trophy" class="trophy-image">
       <div id="winNumber" class="win-number-text">7</div>
       <div class="win-title-text">WINNER</div>
@@ -191,10 +178,6 @@
   </dialog>
 
   <script>
-	// Add these lines near the top of the <script>
-	const loseSound = $('#loseSound');
-	const winSound = $('#winSound');
-
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('debug')) {
       if (urlParams.get('debug') === 'true') {
@@ -222,6 +205,8 @@
     const $ = sel => document.querySelector(sel);
     const flapperEl = $('#flapper');
     const spinBtn = $('#spinBtn');
+    const loseSound = $('#loseSound');
+    const winSound = $('#winSound');
     
     function todayKey(d = new Date()) {
         const year = d.getFullYear();
@@ -239,7 +224,6 @@
       return res.json();
     }
     
-    // THIS FUNCTION WAS MISSING
     function fingerprint() {
       const data = navigator.userAgent + (Intl.DateTimeFormat().resolvedOptions().timeZone || "");
       let h = 0;
@@ -404,39 +388,37 @@
     }
     
     function hideOverlays() {
-		$('#winOverlay').classList.remove('show');
-		$('#loseOverlay').classList.remove('show');
-		$('#flash').classList.remove('active');
-		winSound.pause(); // Stop win sound
-		winSound.currentTime = 0; // Rewind win sound
-	}
+      $('#winOverlay').classList.remove('show');
+      $('#loseOverlay').classList.remove('show');
+      $('#flash').classList.remove('active');
+      winSound.pause(); // Stop win sound
+      winSound.currentTime = 0; // Rewind win sound
+    }
     function celebrate(num) {
-		hideOverlays(); // Stops any previous sounds
-		$('#winNumber').textContent = String(num);
-		$('#winOverlay').classList.add('show');
-		$('#flash').classList.add('active');
-		burst();
-		if (soundOn) winSound.play(); // Play win sound
-		setTimeout(hideOverlays, 34000);
-	}
+      hideOverlays(); // Stops any previous sounds
+      $('#winNumber').textContent = String(num);
+      $('#winOverlay').classList.add('show');
+      $('#flash').classList.add('active');
+      burst();
+      if (soundOn) winSound.play(); // Play win sound
+      setTimeout(hideOverlays, 34000);
+    }
     function showLossOverlay(msg) {
-		hideOverlays(); // Stops any previous sounds
-		const el = $('#loseOverlay');
-		el.querySelector('span').textContent = msg;
-		el.classList.add('show');
-		if (soundOn) loseSound.play(); // Play lose sound
-		setTimeout(() => el.classList.remove('show'), 4000); // Keep lose message shorter
-	}
+      hideOverlays(); // Stops any previous sounds
+      const el = $('#loseOverlay');
+      el.querySelector('span').textContent = msg;
+      el.classList.add('show');
+      if (soundOn) loseSound.play(); // Play lose sound
+      setTimeout(() => el.classList.remove('show'), 4000); // Keep lose message shorter
+    }
 
     // CORRECTED limitCheck FUNCTION
     async function limitCheck() {
-		if (CONFIG.DEBUG) return null;
-		
-		// This version will let any server errors be caught by the startSpin function,
-		// which correctly stops the spin process.
-		const res = await api('POST', '/check');
-		return res.already ? res.record : null;
-	}
+      if (CONFIG.DEBUG) return null;
+      // This will now throw an error on failure, which is caught by startSpin
+      const res = await api('POST', '/check');
+      return res.already ? res.record : null;
+    }
 
     function showLimitMessage(rec) {
       $('#limitMsg').innerHTML = `You already spun today at <strong>${new Date(rec.ts).toLocaleTimeString()}</strong>. Result: <strong>${rec.landed}</strong> (your guess: ${rec.guess}).`;
