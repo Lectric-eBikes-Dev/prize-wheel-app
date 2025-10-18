@@ -349,39 +349,37 @@
 
     // Replace the entire startSpin function with this async version
 	async function startSpin() {
-		if (spinActive) return; // Prevent spins during an active spin
+		if (spinActive || spinBtn.disabled) return; // Prevent spins if active or button disabled
 
 		const name = $('#name').value.trim();
 		const guess = Number($('#guess').value);
-		if (!name || !guess || name === 'Loading user...' || name === 'Error loading user') {
+		if (!name || !guess || name.startsWith('Loading') || name.startsWith('Error')) {
 			return alert('Cannot spin until user information is loaded.');
 		}
 
-		// 1. Disable button immediately
+		// Disable button immediately
 		spinBtn.disabled = true;
 		spinBtn.textContent = 'CHECKING...';
-		isHolding = false; // Reset holding state now
+		isHolding = false; // Reset holding state
 
 		try {
-			// 2. Perform the limit check
 			const alreadyRecord = await limitCheck(); 
 			console.log('Limit Check Result:', alreadyRecord);
 
-			// 3. Block if already spun (and not in debug mode)
-			if (alreadyRecord && !CONFIG.DEBUG) {
+			// Block if already spun (and not in debug mode)
+			if (alreadyRecord && !CONFIG.DEBUG) { 
 			console.log('Spin blocked: Limit reached.');
 			showLimitMessage(alreadyRecord);
-			// Keep button disabled, text remains 'CHECKING...' or set to 'SPUN TODAY'
-			spinBtn.textContent = 'SPUN TODAY'; 
-			return; // Stop execution
+			spinBtn.textContent = 'SPUN TODAY'; // Keep disabled, update text
+			return; 
 			}
 
-			// 4. If allowed, proceed to spin
+			// --- Spin is Allowed ---
 			console.log('Spin allowed, proceeding...');
 			spinBtn.textContent = 'SPINNING...'; // Button remains disabled
 
-			const power = holdStart ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5; // Use hold power
-			holdStart = 0; // Reset holdStart after using it
+			const power = holdStart ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5;
+			holdStart = 0; 
 			const turns = 3 + Math.floor(Math.random() * 3);
 			const randOffset = Math.random() * Math.PI * 2;
 			const duration = 3000 + 3000 * power;
@@ -391,10 +389,10 @@
 			tickIndex = segmentFromAngle(angle);
 			pendingResult = { name, guess };
 
-		} catch (err) { // Catch errors specifically from limitCheck
+		} catch (err) { // Catch errors from limitCheck
 			console.error("Limit check failed, spin blocked:", err);
-			alert('Could not verify spin limit due to a network error. Please try again.');
-			spinBtn.disabled = false; // Re-enable button on check failure
+			alert('Could not verify spin limit. Please try again.');
+			spinBtn.disabled = false; // Re-enable button on check failure ONLY
 			spinBtn.textContent = 'SPIN';
 		}
 	}
@@ -406,41 +404,30 @@
 		const win = (landed === guess);
 		const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() };
 
-		pendingResult = null; // Clear pending result first
+		pendingResult = null; 
 
-		// Show win/loss results
+		// Show win/loss results first
 		if (win) { celebrate(landed); } else { showLossOverlay(`Landed on ${landed}.`); }
 
 		try {
-			// Save spin result AFTER showing feedback
+			// Save spin result
 			const savedRecord = await api('POST', '/spins', record);
 			allSpinsCache.push(savedRecord);
 			$('#dayPicker').value = todayKey();
-			updateFeed(); // Refresh feed only after successful save
+			updateFeed(); 
 		} catch(e) {
 			console.warn('Backend save failed', e);
-			// Optionally inform the user the spin wasn't saved
-			// alert("Your spin completed, but failed to save to the history.");
 		} finally {
 			// --- Button Reset Logic ---
 			spinBtn.textContent = 'SPIN'; // Reset text
 
-			// Re-check the limit to disable button if needed (only if not in debug)
+			// Set final button state based on limit (only disable if NOT in debug)
 			if (!CONFIG.DEBUG) {
-				try {
-					const postSpinCheck = await limitCheck();
-					if (postSpinCheck) {
-						spinBtn.disabled = true; // Disable button as limit is now reached
-						showLimitMessage(postSpinCheck); // Re-show limit message
-					} else {
-						spinBtn.disabled = false; // Enable if limit somehow not reached (or check failed)
-					}
-				} catch (err) {
-					console.error("Post-spin limit check failed:", err);
-					spinBtn.disabled = false; // Enable if check fails
-				}
+				spinBtn.disabled = true; // Assume limit reached after a spin
+				// Optionally show message again immediately
+				showLimitMessage(record); // Use the record we just created
 			} else {
-				spinBtn.disabled = false; // Always re-enable in debug mode
+				spinBtn.disabled = false; // Always enable after spin in debug mode
 			}
 		}
 	}
@@ -472,24 +459,18 @@
 
     // CORRECTED limitCheck FUNCTION
 	async function limitCheck() {
-		console.log('Checking spin limit. Debug mode:', CONFIG.DEBUG); 
+		// No try...catch here. Let errors propagate to the caller.
+		console.log('Checking spin limit. Debug mode:', CONFIG.DEBUG);
 		if (CONFIG.DEBUG) {
 			console.log('Debug mode ON, bypassing server check.');
 			return null; // Allow spin in debug mode
 		}
 
 		console.log('Debug mode OFF, calling /api/check...');
-		// Make the API call. If this fails, the error will propagate up
 		const res = await api('POST', '/check'); 
 		console.log('Backend /check response:', res); 
 
-		if (res.already) {
-			console.log('User has already spun today.');
-			return res.record; // Return the record to block the spin
-		} else {
-			console.log('User has not spun today, allowing spin.');
-			return null; // Allow the spin
-		}
+		return res.already ? res.record : null; // Return record if spun, null otherwise
 	}
 
     function showLimitMessage(rec) {
@@ -598,15 +579,38 @@
     spinBtn.addEventListener('touchstart', e => { e.preventDefault(); if (spinActive) return; isHolding = true; holdStart = Date.now(); initAudio(); }, { passive: false });
     document.addEventListener('touchend', e => { e.preventDefault(); if (!isHolding || spinActive) return; isHolding = false; startSpin(); }, { passive: false });
     
-    fetch('/api/user')
-      .then(res => res.json())
-      .then(user => {
-        if (user && user.name) $('#name').value = user.name;
-        else $('#name').value = 'Could not load user';
-      }).catch(err => {
-        console.error('Error fetching user:', err);
-        $('#name').value = 'Error loading user';
-      });
+    // Find this block near the end of the script
+	fetch('/api/user')
+		.then(res => res.json())
+		.then(user => {
+			if (user && user.name) {
+				$('#name').value = user.name;
+				// ---- ADD INITIAL LIMIT CHECK HERE ----
+				return limitCheck(); // Chain the promise
+			} else {
+				$('#name').value = 'Could not load user';
+				throw new Error('User info failed to load'); // Stop if user load fails
+			}
+		})
+		.then(alreadyRecord => {
+			// ---- SET INITIAL BUTTON STATE ----
+			console.log('Initial Limit Check Result:', alreadyRecord);
+			if (alreadyRecord && !CONFIG.DEBUG) {
+				showLimitMessage(alreadyRecord);
+				spinBtn.disabled = true;
+				spinBtn.textContent = 'SPUN TODAY';
+			} else {
+				spinBtn.disabled = false; // Enable if not spun or in debug
+				spinBtn.textContent = 'SPIN';
+			}
+		})
+		.catch(err => {
+			console.error('Error during initial load or limit check:', err);
+			$('#name').value = 'Error loading user';
+			spinBtn.disabled = true; // Disable spin if initial load fails
+			spinBtn.textContent = 'LOAD ERROR';
+			$('#limitMsg').textContent = 'Could not load user data or check spin status.';
+		});
 
     resizeConfetti();
     drawWheel(0);
