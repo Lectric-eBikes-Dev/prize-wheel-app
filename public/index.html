@@ -347,40 +347,57 @@
         requestAnimationFrame(drawConfetti);
     }
 
-    function startSpin() {
-		if (spinActive) return;
+    // Replace the entire startSpin function with this async version
+	async function startSpin() {
+		if (spinActive) return; // Prevent multiple spins while one is active
+
 		const name = $('#name').value.trim();
 		const guess = Number($('#guess').value);
-		if (!name || !guess || name === 'Loading user...') {
-			return alert('Please wait for user info to load.');
+		if (!name || !guess || name === 'Loading user...' || name === 'Error loading user') {
+			return alert('Cannot spin until user information is loaded.');
 		}
-		
-		// Call the updated limitCheck
-		limitCheck().then(alreadyRecord => { 
-			// Log the result received from limitCheck
-			console.log('Result from limitCheck:', alreadyRecord); 
 
-			// If alreadyRecord is truthy (meaning a record was returned)
-			if (alreadyRecord) { 
+		// Disable the spin button immediately to prevent double-clicks
+		spinBtn.disabled = true;
+		spinBtn.textContent = 'CHECKING...';
+
+		try {
+			// Wait for the limit check to complete
+			const alreadyRecord = await limitCheck();
+			console.log('Result from limitCheck:', alreadyRecord); // Log for debugging
+
+			// If a record exists (user already spun today)
+			if (alreadyRecord) {
 			console.log('Spin blocked.');
-			return showLimitMessage(alreadyRecord); // Block the spin
+			showLimitMessage(alreadyRecord); // Show message and block
+			spinBtn.disabled = false; // Re-enable button
+			spinBtn.textContent = 'SPIN';
+			return; // Stop the function here
 			}
-			
-			// If alreadyRecord is null, proceed with the spin
+
+			// --- If we reach here, the spin is allowed ---
 			console.log('Spin allowed, proceeding...');
-			const power = isHolding ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5;
+			spinBtn.textContent = 'SPINNING...'; // Keep button disabled
+
+			const power = isHolding ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5; // Use hold power or default
 			const turns = 3 + Math.floor(Math.random() * 3);
 			const randOffset = Math.random() * Math.PI * 2;
 			const duration = 3000 + 3000 * power;
+
 			spinPlan = { t0: performance.now(), dur: duration, a0: angle, a1: angle + (Math.PI * 2 * turns) + randOffset };
-			spinActive = true;
+			spinActive = true; // Mark spin as active
 			tickIndex = segmentFromAngle(angle);
 			pendingResult = { name, guess };
 
-		}).catch(err => { // Catch errors from limitCheck (like network errors)
+		} catch (err) { // Catch errors from limitCheck (like network failure)
 			console.error("Limit check failed, spin blocked:", err);
-			alert('Could not verify spin limit. Please try again.'); // Inform user, block spin
-		});
+			alert('Could not verify spin limit due to a network error. Please try again.');
+			spinBtn.disabled = false; // Re-enable button on error
+			spinBtn.textContent = 'SPIN';
+		} finally {
+			// Ensure holding state is reset regardless of outcome
+			isHolding = false; 
+		}
 	}
 
     function onSpinStop() {
