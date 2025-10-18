@@ -349,7 +349,7 @@
 
     // Replace the entire startSpin function with this async version
 	async function startSpin() {
-		if (spinActive) return; // Prevent multiple spins while one is active
+		if (spinActive) return; // Prevent spins while one is running
 
 		const name = $('#name').value.trim();
 		const guess = Number($('#guess').value);
@@ -357,35 +357,34 @@
 			return alert('Cannot spin until user information is loaded.');
 		}
 
-		// Disable the spin button immediately to prevent double-clicks
+		// Disable button immediately
 		spinBtn.disabled = true;
 		spinBtn.textContent = 'CHECKING...';
 
 		try {
-			// Wait for the limit check to complete
-			const alreadyRecord = await limitCheck();
-			console.log('Result from limitCheck:', alreadyRecord); // Log for debugging
+			// --- The Crucial Check ---
+			const alreadyRecord = await limitCheck(); // Wait for the check
 
-			// If a record exists (user already spun today)
-			if (alreadyRecord) {
-			console.log('Spin blocked.');
-			showLimitMessage(alreadyRecord); // Show message and block
-			spinBtn.disabled = false; // Re-enable button
-			spinBtn.textContent = 'SPIN';
-			return; // Stop the function here
+			// If a record exists AND debug mode is OFF, block the spin
+			if (alreadyRecord && !CONFIG.DEBUG) { 
+			console.log('Spin blocked: User already spun today.');
+			showLimitMessage(alreadyRecord);
+			spinBtn.textContent = 'SPIN'; // Reset button text
+			// Keep button disabled because they've used their spin
+			return; // Stop the function
 			}
 
-			// --- If we reach here, the spin is allowed ---
+			// --- Spin is Allowed ---
 			console.log('Spin allowed, proceeding...');
-			spinBtn.textContent = 'SPINNING...'; // Keep button disabled
+			spinBtn.textContent = 'SPINNING...'; // Keep button disabled during spin
 
-			const power = isHolding ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5; // Use hold power or default
+			const power = isHolding ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5;
 			const turns = 3 + Math.floor(Math.random() * 3);
 			const randOffset = Math.random() * Math.PI * 2;
 			const duration = 3000 + 3000 * power;
 
 			spinPlan = { t0: performance.now(), dur: duration, a0: angle, a1: angle + (Math.PI * 2 * turns) + randOffset };
-			spinActive = true; // Mark spin as active
+			spinActive = true;
 			tickIndex = segmentFromAngle(angle);
 			pendingResult = { name, guess };
 
@@ -395,47 +394,50 @@
 			spinBtn.disabled = false; // Re-enable button on error
 			spinBtn.textContent = 'SPIN';
 		} finally {
-			// Ensure holding state is reset regardless of outcome
-			isHolding = false; 
+			isHolding = false; // Ensure holding state is reset
 		}
 	}
 
     // Replace the entire onSpinStop function
-	async function onSpinStop() { // Make this async to await the final limit check
+	async function onSpinStop() { 
 		const { name, guess } = pendingResult;
 		const landed = segmentFromAngle(angle) + 1;
 		const win = (landed === guess);
 		const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() };
 
-		// Save the spin result
-		api('POST', '/spins', record).then(savedRecord => {
-			allSpinsCache.push(savedRecord);
-			$('#dayPicker').value = todayKey();
-			updateFeed(); // Refresh the feed
-		}).catch(e => console.warn('Backend save failed', e));
+		// Save spin result (errors handled by console warning)
+		api('POST', '/spins', record)
+			.then(savedRecord => {
+				allSpinsCache.push(savedRecord);
+				$('#dayPicker').value = todayKey();
+				updateFeed();
+			})
+			.catch(e => console.warn('Backend save failed', e));
 
-		// Show win/loss overlay
+		// Show win/loss results
 		if (win) { celebrate(landed); } else { showLossOverlay(`Landed on ${landed}.`); }
 		pendingResult = null;
 
 		// --- Button Reset Logic ---
-		spinBtn.textContent = 'SPIN'; // Reset text immediately
-		spinBtn.disabled = false; // Temporarily re-enable
+		spinBtn.textContent = 'SPIN'; // Reset text
 
-		// Check limit again AFTER spin completes to potentially disable button for next time
-		try {
-			const alreadyRecord = await limitCheck(); // Check if they've now reached the limit
-			if (alreadyRecord && !CONFIG.DEBUG) { // If they spun AND debug is OFF
-				spinBtn.disabled = true; // Disable the button
-				showLimitMessage(alreadyRecord); // Show the limit message again
-			} else {
-				spinBtn.disabled = false; // Ensure button is enabled if in debug or check failed
+		// Check the limit again *only if not in debug mode* to see if the button should be disabled now
+		if (!CONFIG.DEBUG) {
+			try {
+				const postSpinCheck = await limitCheck(); // Re-check the limit status
+				if (postSpinCheck) {
+					spinBtn.disabled = true; // Disable if they've now used their spin
+					// Optionally re-show the limit message if needed, though it might be redundant
+					// showLimitMessage(postSpinCheck); 
+				} else {
+					spinBtn.disabled = false; // Should not happen unless check failed, but safety first
+				}
+			} catch (err) {
+				console.error("Post-spin limit check failed:", err);
+				spinBtn.disabled = false; // Re-enable if check fails, allow user to try again later
 			}
-		} catch (err) {
-			console.error("Post-spin limit check failed:", err);
-			// Decide if button should be disabled even if check fails, e.g., disable it
-			// spinBtn.disabled = true; 
-			// alert("Could not verify remaining spins."); 
+		} else {
+			spinBtn.disabled = false; // Always enable after spin in debug mode
 		}
 	}
     
@@ -466,25 +468,24 @@
 
     // CORRECTED limitCheck FUNCTION
 	async function limitCheck() {
-	// Explicitly log the debug status when the check starts
-	console.log('Checking spin limit. Debug mode:', CONFIG.DEBUG); 
-	
-	if (CONFIG.DEBUG) {
-		console.log('Debug mode ON, allowing spin.');
-		return null; // Allow spin in debug mode
-	}
-	
-	// Make the API call. If this fails, the error will propagate up to startSpin
-	const res = await api('POST', '/check'); 
-	console.log('Backend /check response:', res); // Log the response for debugging
+		console.log('Checking spin limit. Debug mode:', CONFIG.DEBUG); 
+		if (CONFIG.DEBUG) {
+			console.log('Debug mode ON, bypassing server check.');
+			return null; // Allow spin in debug mode
+		}
 
-	if (res.already) {
-		console.log('User has already spun today.');
-		return res.record; // Return the record to block the spin
-	} else {
-		console.log('User has not spun today, allowing spin.');
-		return null; // Allow the spin
-	}
+		console.log('Debug mode OFF, calling /api/check...');
+		// Make the API call. If this fails, the error will propagate up
+		const res = await api('POST', '/check'); 
+		console.log('Backend /check response:', res); 
+
+		if (res.already) {
+			console.log('User has already spun today.');
+			return res.record; // Return the record to block the spin
+		} else {
+			console.log('User has not spun today, allowing spin.');
+			return null; // Allow the spin
+		}
 	}
 
     function showLimitMessage(rec) {
