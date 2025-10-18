@@ -62,7 +62,9 @@
     .flash-border.active{animation:flash 1.1s linear infinite}
     @keyframes flash{0%,100%{box-shadow:0 0 0 6px rgba(255,255,255,.05), inset 0 0 0 6px rgba(255,255,255,.05)} 50%{box-shadow:0 0 0 6px rgba(255,215,0,.9),0 0 30px 8px rgba(255,215,0,.6),inset 0 0 0 6px rgba(0,200,255,.7)}}
     .feed{max-height:50vh; overflow:auto}
-    :root{--feed-grid:1.2fr 1fr .6fr .6fr 48px}
+    /*:root{--feed-grid:1.2fr 1fr .6fr .6fr 48px}*/
+	:root { --feed-grid: 1.2fr 1fr .6fr .6fr 48px; }
+	body.debug-mode { --feed-grid: 30px 1.2fr 1fr .6fr .6fr 48px; } /* Add checkbox column */
     .feed .entry{display:grid; grid-template-columns:var(--feed-grid); align-items:center; padding:10px 0; border-bottom:1px dashed #243048}
     .feed .entry > div{padding:0 10px}
     .feed .entry > div + div{border-left:1px dashed #243048}
@@ -138,6 +140,7 @@
           <div class="spin-row" style="grid-column:1/-1;">
             <button type="button" id="spinBtn" class="btn primary" aria-pressed="false">SPIN</button>
             <button type="button" id="clearDataBtn" class="btn" style="display:none;">Clear Data</button>
+			<button type="button" id="clearTodayBtn" class="btn" style="display:none;">Clear Today's Data</button>
             <span class="hold-hint">Press & hold to power up, release to spin.</span>
           </div>
           <div style="grid-column:1/-1" class="notice" id="limitMsg"></div>
@@ -147,6 +150,7 @@
     <aside class="card">
       <div class="feed-head">
         <h3 style="margin:6px 0 10px">Today's Activity <input type="date" id="dayPicker" style="float: right;" /></h3>
+		<button id="deleteSelectedBtn" class="btn" style="display:none; margin-left: 10px;">Delete Selected</button>
       </div>
       <div id="hotCloud" style="display:flex; flex-wrap:wrap; gap:8px; margin:25px 0"></div>
       <div class="feed" id="feed"></div>
@@ -427,15 +431,30 @@
 			console.warn('Backend save failed', e);
 		} finally {
 			// --- Button Reset Logic ---
-			spinBtn.textContent = 'SPIN'; // Reset text
+			spinBtn.textContent = 'SPIN'; // Reset text first
+			spinBtn.disabled = false;    // Temporarily enable
 
-			// Set final button state based on limit (only disable if NOT in debug)
+			// Re-check the limit to disable button if needed (only if not in debug)
 			if (!CONFIG.DEBUG) {
-				spinBtn.disabled = true; // Assume limit reached after a spin
-				// Optionally show message again immediately
-				showLimitMessage(record); // Use the record we just created
+				try {
+					// Use a short delay to ensure the DOM updates before potentially
+					// showing the limit message again.
+					await new Promise(resolve => setTimeout(resolve, 50)); 
+					
+					const postSpinCheck = await limitCheck(); // Re-check the limit status
+					if (postSpinCheck) {
+						spinBtn.disabled = true; // Disable if they've now used their spin
+						spinBtn.textContent = 'TRY AGAIN TOMORROW'; // <<< SET TEXT HERE
+						showLimitMessage(postSpinCheck); // Re-show limit message
+					} else {
+						spinBtn.disabled = false; // Should not happen unless check failed, safety first
+					}
+				} catch (err) {
+					console.error("Post-spin limit check failed:", err);
+					spinBtn.disabled = false; // Enable if check fails
+				}
 			} else {
-				spinBtn.disabled = false; // Always enable after spin in debug mode
+				spinBtn.disabled = false; // Always re-enable in debug mode
 			}
 		}
 	}
@@ -486,17 +505,24 @@
     }
 
     function renderEntry(s) {
-      const row = document.createElement('div');
-      row.className = 'entry';
-      row.innerHTML = `
-        <div class="name">${escapeHtml(s.name || '')}</div>
-        <div class="time">${new Date(s.ts).toLocaleString()}</div>
-        <div>${s.guess || ''}</div>
-        <div>${s.landed || ''}</div>
-        <div>${s.win ? '<svg class="trophy-ic" viewBox="0 0 24 24"><path fill="#F6C453" d="M18 7h2V4h-2V2H6v2H4v3h2c.1 2.5 1.6 4.6 3.7 5.3A5 5 0 0 0 7 17v2H5v3h14v-3h-2v-2c0-2-1.3-3.8-3.1-4.7C16.4 11.6 17.9 9.5 18 7Z"/></svg>' : ''}</div>
-      `;
-      return row;
-    }
+		const row = document.createElement('div');
+		row.className = 'entry';
+		// Conditionally add checkbox in debug mode
+		const checkboxHTML = CONFIG.DEBUG 
+			? `<div><input type="checkbox" class="delete-checkbox" data-id="${s._id}"></div>` 
+			: ''; 
+
+		row.innerHTML = `
+			${checkboxHTML} 
+			<div class="name">${escapeHtml(s.name || '')}</div>
+			<div class="time">${new Date(s.ts).toLocaleString()}</div>
+			<div>${s.guess || ''}</div>
+			<div>${s.landed || ''}</div>
+			<div>${s.win ? '<svg class="trophy-ic">...</svg>' : ''}</div> 
+		`;
+		// Ensure SVG path is complete if you copy-paste
+		return row;
+	}
     
     async function updateFeed() {
       const daySel = $('#dayPicker').value || todayKey();
@@ -506,7 +532,13 @@
         }
         const list = allSpinsCache.filter(s => s.day === daySel).sort((a, b) => new Date(b.ts) - new Date(a.ts));
         const feed = $('#feed');
-        feed.innerHTML = `<div class="entry header"><div>Name</div><div>Timestamp</div><div>Guess</div><div>Landed</div><div>Win</div></div>`;
+
+		// --- Modify Header Rendering ---
+		const headerCheckbox = CONFIG.DEBUG ? '<div>Del?</div>' : '';
+		feed.innerHTML = `<div class="entry header">${headerCheckbox}<div>Name</div><div>Timestamp</div><div>Guess</div><div>Landed</div><div>Win</div></div>`;
+		// --- End of Header Modification ---
+
+        /*feed.innerHTML = `<div class="entry header"><div>Name</div><div>Timestamp</div><div>Guess</div><div>Landed</div><div>Win</div></div>`;*/
         if (!list.length) {
           feed.innerHTML += `<div class="notice" style="padding:8px 10px;">No spins for ${daySel} yet.</div>`;
           $('#hotCloud').innerHTML = '';
@@ -567,6 +599,47 @@
           } catch (err) { alert('An error occurred.'); }
         }
       });
+
+	  // --- Add logic for Delete Selected button ---
+	  const deleteSelectedBtn = $('#deleteSelectedBtn');
+	  deleteSelectedBtn.style.display = 'inline-block'; // Show button
+	  deleteSelectedBtn.addEventListener('click', async () => {
+			const checkedBoxes = document.querySelectorAll('.delete-checkbox:checked');
+			if (checkedBoxes.length === 0) {
+				return alert('Please select at least one record to delete.');
+			}
+
+			const idsToDelete = Array.from(checkedBoxes).map(cb => cb.dataset.id);
+
+			if (confirm(`Are you sure you want to delete ${idsToDelete.length} selected record(s)? This cannot be undone.`)) {
+				try {
+					const result = await api('POST', '/api/admin/delete-selected', { ids: idsToDelete });
+					// Remove deleted items from cache
+					allSpinsCache = allSpinsCache.filter(s => !idsToDelete.includes(s._id));
+					alert(`Successfully deleted ${result.deleted} record(s).`);
+					updateFeed(); // Refresh the feed immediately
+				} catch (err) {
+					console.error('Failed to delete selected:', err);
+					alert('An error occurred while deleting records. Check console.');
+				}
+			}
+	  });
+	  // --- End of Delete Selected logic ---
+
+	  // --- Add logic for Clear Today button ---
+	  const clearTodayBtn = $('#clearTodayBtn');
+	  clearTodayBtn.style.display = 'inline-block'; // Make it visible
+	  clearTodayBtn.addEventListener('click', async () => {
+		if (confirm('Are you sure you want to clear ONLY TODAY\'S spin data?')) {
+			try {
+				const result = await api('GET', '/api/admin/reset-today');
+				allSpinsCache = allSpinsCache.filter(s => s.day !== todayKey()); // Update cache
+				alert(`Cleared today's data successfully. Removed ${result.cleared} records.`);
+				location.reload(); // Reload for clean state
+			} catch (err) { alert('An error occurred clearing today\'s data.'); }
+		}
+	});
+	// --- End of Clear Today logic ---
     }
 
     const guessSel = $('#guess');
