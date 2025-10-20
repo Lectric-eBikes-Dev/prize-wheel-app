@@ -630,15 +630,24 @@
 	  const clearTodayBtn = $('#clearTodayBtn');
 	  clearTodayBtn.style.display = 'inline-block'; // Make it visible
 	  clearTodayBtn.addEventListener('click', async () => {
-		if (confirm('Are you sure you want to clear ONLY TODAY\'S spin data?')) {
+		const selectedDate = $('#dayPicker').value || todayKey(); // Get date from picker or default to today
+		if (confirm(`Are you sure you want to clear spin data for ${selectedDate}?`)) { // Update confirmation message
 			try {
-				const result = await api('GET', '/admin/reset-today');
-				allSpinsCache = allSpinsCache.filter(s => s.day !== todayKey()); // Update cache
-				alert(`Cleared today's data successfully. Removed ${result.cleared} records.`);
-				location.reload(); // Reload for clean state
-			} catch (err) { alert('An error occurred clearing today\'s data.'); }
+			// Send the selected date as a query parameter
+			const result = await api('GET', `/admin/reset-today?date=${selectedDate}`); 
+			
+			// Update cache more accurately based on the cleared date
+			allSpinsCache = allSpinsCache.filter(s => s.day !== selectedDate); 
+			
+			alert(`Cleared data for ${selectedDate} successfully. Removed ${result.cleared} records.`);
+			updateFeed(); // Refresh feed instead of reloading page
+			// Optionally reload if you prefer a full refresh: location.reload(); 
+			} catch (err) { 
+				console.error("Error clearing selected day's data:", err); // Log error details
+				alert(`An error occurred clearing data for ${selectedDate}.`); 
+			}
 		}
-	});
+	  });
 	// --- End of Clear Today logic ---
     }
 

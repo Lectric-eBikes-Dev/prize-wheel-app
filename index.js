@@ -137,14 +137,25 @@ app.get('/api/admin/reset', isLoggedIn, async (req, res) => {
 });
 
 app.get('/api/admin/reset-today', isLoggedIn, async (req, res) => {
- // We rely on the frontend CONFIG.DEBUG check before calling this
+  // We rely on the frontend CONFIG.DEBUG check before calling this
+  
+  // Get the date string from the query parameter sent by the frontend
+  const dateToClear = req.query.date; 
+
+  if (!dateToClear || !/^\d{4}-\d{2}-\d{2}$/.test(dateToClear)) {
+      // Basic validation for YYYY-MM-DD format
+      return res.status(400).json({ error: 'Invalid or missing date parameter. Format: YYYY-MM-DD' });
+  }
+
+  console.log(`Attempting to clear records for date: ${dateToClear}`); // Add logging
+
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const deleteResult = await spinsCollection.deleteMany({ day: today });
+    const deleteResult = await spinsCollection.deleteMany({ day: dateToClear });
+    console.log(`Cleared ${deleteResult.deletedCount} records for ${dateToClear}`); // Log result
     res.json({ ok: true, cleared: deleteResult.deletedCount });
   } catch (error) {
-    console.error('Failed to clear today\'s data:', error);
-    res.status(500).json({ error: 'Failed to clear today\'s data' });
+    console.error(`Failed to clear data for ${dateToClear}:`, error);
+    res.status(500).json({ error: `Failed to clear data for ${dateToClear}` });
   }
 });
 
