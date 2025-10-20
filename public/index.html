@@ -1,91 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Lectric - PRIZE WHEEL</title>
-<style>
-  :root{--bg:#0e1116; --panel:#121722; --accent:#2b90ff; --text:#eef3fb; --muted:#b8c2d1; --border:#1e2532}
-  html,body{height:100%;}
-  body{margin:0;background:radial-gradient(1200px 800px at 20% 10%,#131a26,#0a0d12),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,"Noto Sans",sans-serif;-webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;overflow-x:hidden}
-  .page{max-width:1200px;margin:5px auto;padding:16px;display:grid;gap:18px;grid-template-columns:1.1fr .9fr}
-  @media (max-width:980px){.page{grid-template-columns:1fr}}
-  header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 0 0}
-  .brand{display:flex;gap:12px;align-items:center}
-  .brand .dot{width:12px;height:12px;margin:0 20px;border-radius:50%;background:#00a2db;box-shadow:0 0 14px #00a2db}
-  .brand h1{font-size:28px;margin:0;letter-spacing:.5px}
-  .btn{appearance:none;border:1px solid var(--border);background:#0f1520;color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:600;transition:.2s all}
-  .btn:hover{transform:translateY(-1px);background:#121a2a}
-  .btn:disabled{cursor:not-allowed;opacity:.6;background:#555;border-color:#444;box-shadow:none}
-  .btn.primary{background:linear-gradient(180deg,#1c72ff,#1652ff);border-color:#1c52e6;box-shadow:0 6px 18px rgba(28,114,255,.35)}
-  .card{background:linear-gradient(180deg,#0e1420,#0c111a);border:1px solid var(--border);border-radius:18px;padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.35)}
-  .stage{display:grid;grid-template-columns:minmax(280px,520px);justify-content:center;gap:14px}
-  .form{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
-  .form .field{display:flex;flex-direction:column;gap:6px}
-  label{font-size:12px;color:var(--muted)}
-  input[type="text"],select{background:#0f1520;border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:10px;outline:none}
-  .spin-row{display:flex;gap:10px;align-items:center}
-  .hold-hint{font-size:12px;color:var(--muted)}
-  .wheel-wrap{position:relative;display:grid;place-items:center}
-  canvas#wheel{width:100%;height:auto;max-width:520px;aspect-ratio:1/1;background:radial-gradient(circle at 50% 48%,#1b2332 0%,#0e1420 70%,#0b1018 100%);border-radius:50%}
-  .bezel{position:absolute;inset:10px;border-radius:50%;pointer-events:none;border:10px solid #1a2230;box-shadow:inset 0 0 0 6px #0a0f17,0 0 0 2px #202a3b,0 0 30px rgba(0,0,0,.6)}
-  .bolts{position:absolute;inset:0;pointer-events:none}
-  .bolts::before,.bolts::after{content:"";position:absolute;width:10px;height:10px;border-radius:50%;background:#aeb7c7;box-shadow:0 0 0 2px #6a7484 inset,0 0 10px rgba(255,255,255,.4)}
-  .bolts::before{top:8px;left:50%;transform:translateX(-50%)}
-  .bolts::after{bottom:8px;left:50%;transform:translateX(-50%)}
-  .flapper{position:absolute;top:15px;left:50%;transform:translateX(-50%) rotate(180deg);width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:30px solid #e8a942;filter:drop-shadow(0 6px 4px rgba(0,0,0,.45));z-index:3}
-  .flapper::after{content:"";position:absolute;top:30px;left:-14px;width:28px;height:8px;background:#1f66ff;border-radius:0 0 6px 6px}
-  @keyframes flick{0%,100%{transform:translateX(-50%) rotate(180deg)}50%{transform:translateX(-50%) rotate(165deg)}}
-  .flick-animation{animation:flick .15s ease-in-out}
-  .overlay{position:fixed;inset:0;display:none;place-items:center;background:rgba(4,6,10,.6);backdrop-filter:blur(2px);z-index:9998;opacity:0;transition:opacity .3s ease-in-out}
-  .overlay.show{display:grid;opacity:1}
-  #confetti{position:fixed;inset:0;pointer-events:none;z-index:10000}
-  .flash-border{position:fixed;inset:0;pointer-events:none;border:6px solid transparent;border-radius:18px;z-index:9999}
-  .feed{max-height:50vh;overflow:auto}
-  .feed .entry{display:grid;grid-template-columns:1.2fr 1fr .6fr .6fr 48px;align-items:center;padding:10px 0;border-bottom:1px dashed #243048}
-  .feed .entry>div{padding:0 10px}
-  .feed .entry>div+div{border-left:1px dashed #243048}
-  .feed .entry.header{position:sticky;top:0;background:var(--panel);z-index:10;color:var(--muted);font-weight:700;font-size:12px;border-bottom:1px solid #243048}
-  .trophy-ic{width:20px;height:20px;display:inline-block}
-  .notice{font-size:12px;color:var(--muted)}
-  #topRightControls{position:fixed;top:16px;right:24px;z-index:10000;display:flex;gap:16px;align-items:center}
-  #debugIndicator{display:none;background:#e53e3e;color:#fff;padding:4px 8px;font-size:12px;font-weight:700;border-radius:4px}
-  .win-container{position:relative;text-align:center;filter:drop-shadow(0 10px 25px rgba(0,0,0,.5))}
-  .trophy-image{width:min(520px,60vw);height:auto}
-  .win-number-text{position:absolute;top:27%;left:50%;transform:translate(-50%,-50%);font-family:Inter,sans-serif;font-size:6.5em;font-weight:900;color:#fff;text-shadow:3px 3px 33px yellow;-webkit-text-stroke:3px #b57a1c}
-  .win-title-text{margin-top:-20px;font-size:3em;color:#fff;font-weight:800;text-shadow:3px 3px 56px #fff}
-  .close-button{position:absolute;top:15px;right:15px;background:rgba(0,0,0,.3);color:#fff;border:none;border-radius:50%;width:30px;height:30px;font-size:20px;line-height:30px;text-align:center;cursor:pointer;z-index:10}
-  .close-button:hover{background:rgba(0,0,0,.6)}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lectric - PRIZE WHEEL</title>
+  <style>
+    :root{
+      --bg:#0e1116; --panel:#121722; --accent:#2b90ff; --accent-2:#00d4ff;
+      --text:#eef3fb; --muted:#b8c2d1; --success:#36d399; --danger:#ff6b6b;
+      --gold:#F6C453; --trophy:#F9D648; --border:#1e2532;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; background:radial-gradient(1200px 800px at 20% 10%,#131a26,#0a0d12), var(--bg);
+      color:var(--text); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; overflow-x:hidden;
+    }
+    .page{
+      max-width:1200px; margin:5px auto; padding:16px; display:grid; gap:18px;
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+    @media (max-width: 980px){.page{grid-template-columns:1fr;}}
+    header{ display:flex; gap:12px; align-items:center; justify-content:space-between; padding:8px 0 0; }
+    .brand{display:flex; gap:12px; align-items:center}
+    .brand .dot{width:12px;height:12px;margin: 0 20px; border-radius:50%;background:var(--accent); background: #00a2db; box-shadow:0 0 14px var(--accent)}
+    .brand h1{font-size:28px; margin:0; letter-spacing:.5px}
+    .btn{appearance:none; border:1px solid var(--border); background:#0f1520; color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; transition:.2s all;}
+    .btn:hover{transform:translateY(-1px); background:#121a2a}
+	/* Add this rule to your <style> block */
+	.btn:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+		background: #555; /* Darker background */
+		border-color: #444;
+		box-shadow: none; /* Remove hover/active effects */
+	}
+    .btn.primary{background:linear-gradient(180deg,#1c72ff,#1652ff); border-color:#1c52e6; box-shadow:0 6px 18px rgba(28,114,255,.35)}
+    .card{background:linear-gradient(180deg,#0e1420,#0c111a); border:1px solid var(--border); border-radius:18px; padding:14px; box-shadow:0 16px 40px rgba(0,0,0,.35);}
+    .stage{display:grid; grid-template-columns: minmax(280px,520px); justify-content:center; gap:14px}
+    .form{display:grid; grid-template-columns: 1fr 1fr; gap:10px; align-items:end}
+    .form .field{display:flex; flex-direction:column; gap:6px}
+    label{font-size:12px; color:var(--muted)}
+    input[type="text"], select{background:#0f1520; border:1px solid var(--border); color:var(--text); padding:10px 12px; border-radius:10px; outline:none}
+    .spin-row{display:flex; gap:10px; align-items:center}
+    .hold-hint{font-size:12px; color:var(--muted)}
+    .wheel-wrap{position:relative; display:grid; place-items:center}
+    canvas#wheel{width:100%; height:auto; max-width:520px; aspect-ratio:1/1; background:radial-gradient(circle at 50% 48%, #1b2332 0%, #0e1420 70%, #0b1018 100%); border-radius:50%;}
+    .bezel{position:absolute; inset:10px; border-radius:50%; pointer-events:none; border:10px solid #1a2230; box-shadow:inset 0 0 0 6px #0a0f17, 0 0 0 2px #202a3b, 0 0 30px rgba(0,0,0,.6)}
+    .bolts{position:absolute; inset:0; pointer-events:none}
+    .bolts::before, .bolts::after{content:""; position:absolute; width:10px; height:10px; border-radius:50%; background:#aeb7c7; box-shadow:0 0 0 2px #6a7484 inset, 0 0 10px rgba(255,255,255,.4)}
+    .bolts::before{top:8px; left:50%; transform:translateX(-50%)}
+    .bolts::after{bottom:8px; left:50%; transform:translateX(-50%)}
+    .flapper{position:absolute; top:15px; left:50%; transform:translateX(-50%) rotate(180deg); width:0; height:0; border-left:14px solid transparent; border-right:14px solid transparent; border-bottom:30px solid #e8a942; filter:drop-shadow(0 6px 4px rgba(0,0,0,.45)); z-index:3}
+    .flapper::after{content:""; position:absolute; top:30px; left:-14px; width:28px; height:8px; background:#1f66ff; border-radius:0 0 6px 6px}
+    @keyframes flick{0%,100%{transform:translateX(-50%) rotate(180deg)} 50%{transform:translateX(-50%) rotate(165deg)}}
+    .flick-animation{animation:flick .15s ease-in-out}
+    .overlay{position:fixed; inset:0; display:none; place-items:center; background:rgba(4,6,10,.6); backdrop-filter:blur(2px); z-index:9998; opacity:0; transition:opacity .3s ease-in-out}
+    .overlay.show{display:grid; opacity:1}
+    #confetti{z-index:10000}
+    .flash-border{position:fixed; inset:0; pointer-events:none; border:6px solid transparent; border-radius:18px; z-index:9999}
+    .flash-border.active{animation:flash 1.1s linear infinite}
+    @keyframes flash{0%,100%{box-shadow:0 0 0 6px rgba(255,255,255,.05), inset 0 0 0 6px rgba(255,255,255,.05)} 50%{box-shadow:0 0 0 6px rgba(255,215,0,.9),0 0 30px 8px rgba(255,215,0,.6),inset 0 0 0 6px rgba(0,200,255,.7)}}
+    .feed{max-height:50vh; overflow:auto}
+    /*:root{--feed-grid:1.2fr 1fr .6fr .6fr 48px}*/
+	:root { --feed-grid: 1.2fr 1fr .6fr .6fr 48px; }
+	body.debug-mode { --feed-grid: 30px 1.2fr 1fr .6fr .6fr 48px; } /* Add checkbox column */
+    .feed .entry{display:grid; grid-template-columns:var(--feed-grid); align-items:center; padding:10px 0; border-bottom:1px dashed #243048}
+    .feed .entry > div{padding:0 10px}
+    .feed .entry > div + div{border-left:1px dashed #243048}
+    .feed .entry.header{position:sticky; top:0; background:var(--panel,#121722); z-index:10; color:var(--muted); font-weight:700; font-size:12px; border-bottom:1px solid #243048}
+    .feed .entry .name{font-weight:600}
+    .feed .entry .time{color:var(--muted); font-size:12px}
+    .trophy-ic{width:20px; height:20px; display:inline-block}
+    dialog#board{width:min(720px,92vw); border:1px solid var(--border); border-radius:16px; background:#0f1520; color:var(--text); padding:0}
+    #board::backdrop{background:rgba(0,0,0,.6)}
+    .board-head{display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border)}
+    .table{width:100%; border-collapse:collapse}
+    .table th, .table td{padding:10px 12px; border-bottom:1px solid #1a2334; text-align:left}
+    .table th{color:#9fb3d1; font-weight:600; font-size:13px}
+    .table td{font-size:14px}
+    .switch{display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--muted)}
+    .switch input{appearance:none; width:36px; height:22px; background:#1a2230; border-radius:999px; position:relative; outline:none; transition:.2s}
+    .switch input:checked{background:#1c72ff}
+    .switch input::after{content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; background:white; border-radius:50%; transition:.2s}
+    .switch input:checked::after{left:17px}
+    #confetti{position:fixed; inset:0; pointer-events:none}
+    .notice{font-size:12px; color:var(--muted)}
+    #topRightControls{position:fixed; top:16px; right:24px; z-index:10000; display:flex; gap:16px; align-items:center}
+    #debugIndicator{display:none; background-color:#e53e3e; color:white; padding:4px 8px; font-size:12px; font-weight:bold; border-radius:4px}
+    
+    .win-container{position:relative; text-align:center; filter:drop-shadow(0 10px 25px rgba(0,0,0,0.5))}
+    .trophy-image{width:min(520px, 60vw); height:auto;}
+    .win-number-text{position:absolute; top:27%; left:50%; transform:translate(-50%,-50%); font-family:Inter,sans-serif; font-size:6.5em; font-weight:900; color:#ffffff; text-shadow: 3px 3px 33px yellow; -webkit-text-stroke-width: 3px; -webkit-text-stroke-color: #b57a1c;}
+    .win-title-text{margin-top:-20px; font-size:3em; color:white; font-weight:800; text-shadow:2px 2px 8px #000; text-shadow: 3px 3px 56px #ffffff;}
+
+    .close-button {
+      position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.3);
+      color: white; border: none; border-radius: 50%; width: 30px; height: 30px;
+      font-size: 20px; line-height: 30px; text-align: center; cursor: pointer; z-index: 10;
+    }
+    .close-button:hover { background: rgba(0,0,0,0.6); }
+  </style>
 </head>
 <body>
   <audio id="loseSound" src="/studio-audience-awwww-sound-fx.mp3" preload="auto"></audio>
-  <audio id="winSound"  src="/youre-a-winner.mp3" preload="auto" loop></audio>
-
+  <audio id="winSound" src="/youre-a-winner.mp3" preload="auto" loop></audio>
   <div id="topRightControls">
     <label class="switch"><input type="checkbox" id="soundToggle" checked><span>Sound</span></label>
     <div id="debugIndicator">DEBUG MODE: ON</div>
   </div>
-
   <div class="flash-border" id="flash"></div>
   <canvas id="confetti"></canvas>
-
   <header class="page" style="grid-template-columns:1fr;">
     <div class="brand">
-      <img src="https://lectricebikes.com/cdn/shop/files/logo-t.png?v=1722462393&amp;width=170" alt="Lectric">
-      <div class="dot"></div><h1>PRIZE WHEEL</h1><div class="dot"></div>
+      <img src="https://lectricebikes.com/cdn/shop/files/logo-t.png?v=1722462393&amp;width=170">
+      <div class="dot"></div>
+      <h1>PRIZE WHEEL</h1>
+      <div class="dot"></div>
     </div>
   </header>
-
   <main class="page">
     <section class="card">
       <div class="stage">
         <div class="wheel-wrap">
           <div class="flapper" id="flapper" aria-hidden="true"></div>
           <canvas id="wheel" width="900" height="900" aria-label="Prize wheel with 24 segments"></canvas>
-          <div class="bezel"></div><div class="bolts"></div>
+          <div class="bezel"></div>
+          <div class="bolts"></div>
         </div>
-
         <form class="form" id="entryForm" autocomplete="off">
           <div class="field">
             <label for="name">Your Name</label>
@@ -96,31 +138,28 @@
             <select id="guess" name="guess" required></select>
           </div>
           <div class="spin-row" style="grid-column:1/-1;">
-            <button type="button" id="spinBtn" class="btn primary" aria-pressed="false" disabled>SPIN</button>
-            <button type="button" id="clearDataBtn" class="btn" style="display:none;">Clear All</button>
-            <button type="button" id="clearTodayBtn" class="btn" style="display:none;">Clear Day</button>
+            <button type="button" id="spinBtn" class="btn primary" aria-pressed="false">SPIN</button>
+            <button type="button" id="clearDataBtn" class="btn" style="display:none;">Clear Data</button>
+			<button type="button" id="clearTodayBtn" class="btn" style="display:none;">Clear Today's Data</button>
             <span class="hold-hint">Press & hold to power up, release to spin.</span>
           </div>
           <div style="grid-column:1/-1" class="notice" id="limitMsg"></div>
         </form>
       </div>
     </section>
-
     <aside class="card">
       <div class="feed-head">
-        <h3 style="margin:6px 0 10px">Today's Activity
-          <input type="date" id="dayPicker" style="float:right" />
-        </h3>
-        <button id="deleteSelectedBtn" class="btn" style="display:none;margin-left:10px;">Delete Selected</button>
+        <h3 style="margin:6px 0 10px">Today's Activity <input type="date" id="dayPicker" style="float: right;" /></h3>
+		<button id="deleteSelectedBtn" class="btn" style="display:none; margin-left: 10px;">Delete Selected</button>
       </div>
-      <div id="hotCloud" style="display:flex;flex-wrap:wrap;gap:8px;margin:25px 0"></div>
+      <div id="hotCloud" style="display:flex; flex-wrap:wrap; gap:8px; margin:25px 0"></div>
       <div class="feed" id="feed"></div>
-      <div style="text-align:center;padding-top:30px;border-top:1px solid var(--border);">
+      <div style="text-align: center; padding-top: 30px; border-top: 1px solid var(--border);">
         <button class="btn primary" id="leaderBtn">View Leaderboard</button>
       </div>
     </aside>
   </main>
-
+  
   <div class="overlay" id="winOverlay" role="dialog" aria-modal="true" aria-label="Winner">
     <div class="win-container">
       <button class="close-button" onclick="hideOverlays()" aria-label="Close">&times;</button>
@@ -131,9 +170,9 @@
   </div>
 
   <div class="overlay" id="loseOverlay" role="alert" aria-live="polite">
-    <div style="text-align:center;padding:24px 32px;background:var(--panel);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.45)">
-      <div style="font-size:42px;font-weight:900;margin-bottom:6px">Sorry, not a winner this time</div>
-      <span style="font-size:16px;color:var(--muted)"></span>
+    <div style="text-align:center; padding:24px 32px; background:var(--panel); border:1px solid var(--border); border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.45)">
+      <div style="font-size:42px; font-weight:900; margin-bottom:6px">Sorry, not a winner this time</div>
+      <span style="font-size:16px; color:var(--muted)"></span>
     </div>
   </div>
 
@@ -150,394 +189,552 @@
     </div>
   </dialog>
 
-<script>
-/* ---------- CONFIG / DEBUG ---------- */
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.has('debug')) (urlParams.get('debug') === 'true')
-  ? sessionStorage.setItem('debugMode','true') : sessionStorage.removeItem('debugMode');
+  <script>
+	// local fallback if server day not yet known
+	function todayKeyLocal(d = new Date()) {
+		const y = d.getFullYear();
+		const m = String(d.getMonth()+1).padStart(2,'0');
+		const da = String(d.getDate()).padStart(2,'0');
+		return `${y}-${m}-${da}`;
+	}
 
-const CONFIG = {
-  BACKEND_URL: "/api",
-  SEGMENTS: 24,
-  COLORS: ["#0e0f12","#1f66ff","#e9eef7"],
-  BORDER_COLOR: "#dbe7ff",
-  TICK_SOUND_GAIN: 0.25,
-  DEBUG: sessionStorage.getItem('debugMode') === 'true'
-};
+	let SERVER_DAY = null;
+	function todayKey() {
+		// use server authoritative day if available
+		return SERVER_DAY || todayKeyLocal();
+	}
 
-let SERVER_DAY = null;            // authoritative day from server
-const nowTs = () => new Date().toISOString();
-function todayKeyLocal(d=new Date()){
-  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${da}`;
-}
-function todayKey(){ return SERVER_DAY || todayKeyLocal(); }
-
-/* ---------- DOM helpers ---------- */
-const $ = s => document.querySelector(s);
-const spinBtn = $('#spinBtn');
-const flapperEl = $('#flapper');
-const loseSound = $('#loseSound');
-const winSound  = $('#winSound');
-
-/* ---------- API helper that throws with status ---------- */
-async function api(method, path, payload){
-  const opt = { method, headers:{"Content-Type":"application/json"} };
-  if(payload) opt.body = JSON.stringify(payload);
-  const res = await fetch(CONFIG.BACKEND_URL + path, opt);
-  if(!res.ok){
-    const text = await res.text().catch(()=> '');
-    const err  = new Error(text || `HTTP ${res.status}`);
-    err.status = res.status;
-    try { err.body = JSON.parse(text); } catch {}
-    throw err;
-  }
-  return res.json();
-}
-
-/* ---------- Fingerprint ---------- */
-function fingerprint(){
-  const data = navigator.userAgent + (Intl.DateTimeFormat().resolvedOptions().timeZone||"");
-  let h=0; for(let i=0;i<data.length;i++){ h=((h<<5)-h)+data.charCodeAt(i); h|=0 }
-  return "fp_"+Math.abs(h);
-}
-
-/* ---------- Wheel Rendering ---------- */
-const canvas = $('#wheel');
-const ctx = canvas.getContext('2d');
-const SEG = CONFIG.SEGMENTS;
-const per = (Math.PI*2)/SEG;
-function drawWheel(a=0){
-  const size=canvas.width, center=size/2, radius=center-26;
-  ctx.clearRect(0,0,size,size);
-  ctx.save(); ctx.translate(center,center); ctx.rotate(a);
-  for(let i=0;i<SEG;i++){
-    const start=i*per;
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,radius,start,start+per); ctx.closePath();
-    ctx.fillStyle = CONFIG.COLORS[i%CONFIG.COLORS.length]; ctx.fill();
-    ctx.strokeStyle = CONFIG.BORDER_COLOR; ctx.lineWidth=3; ctx.stroke();
-
-    // number
-    const mid = start + per/2;
-    ctx.save(); ctx.rotate(mid); ctx.translate(radius*0.72,0); ctx.rotate(Math.PI/2);
-    ctx.fillStyle = (i%3===2) ? "#0a0f17" : "#eaf2ff";
-    ctx.font = "700 36px Inter, system-ui, sans-serif";
-    ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.fillText(String(i+1),0,0);
-    ctx.restore();
-  }
-  // hub
-  ctx.beginPath(); ctx.fillStyle="#1a2230"; ctx.arc(0,0,54,0,Math.PI*2); ctx.fill();
-  ctx.lineWidth=6; ctx.strokeStyle="#2a3a54"; ctx.stroke();
-  ctx.restore();
-}
-
-// Maps current angle to segment under the flapper (top, 12 o’clock)
-function segmentFromAngle(a){
-  const flapperAngle = 3*Math.PI/2; // 270deg (top)
-  const eff = flapperAngle - a;
-  const norm = ((eff % (2*Math.PI)) + (2*Math.PI)) % (2*Math.PI);
-  return Math.floor(norm / per); // 0..SEG-1
-}
-
-/* ---------- Spin physics / audio ---------- */
-let spinActive=false, isHolding=false, holdStart=0, angle=0, spinPlan=null, tickIndex=0;
-let audioCtx=null, soundOn=true;
-function initAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
-function clack(){
-  if(!soundOn || !audioCtx) return;
-  const now = audioCtx.currentTime;
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.connect(g).connect(audioCtx.destination);
-  o.type='triangle'; o.frequency.setValueAtTime(350, now);
-  g.gain.setValueAtTime(CONFIG.TICK_SOUND_GAIN, now);
-  g.gain.linearRampToValueAtTime(0.0001, now + 0.1);
-  o.start(now); o.stop(now + 0.1);
-}
-
-/* ---------- Confetti ---------- */
-const confettiCanvas = $('#confetti'); const cctx = confettiCanvas.getContext('2d');
-let confetti=[];
-function resizeConfetti(){ confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight; }
-addEventListener('resize', resizeConfetti);
-function burst(){
-  confetti=[]; const count=200; const colors=['#FBBF24','#3B82F6','#EC4899','#EF4444','#8B5CF6','#10B981'];
-  for(let i=0;i<count;i++){
-    confetti.push({x:Math.random()*innerWidth,y:-20-Math.random()*40,vx:(Math.random()-.5)*2,vy:2+Math.random()*3,r:3+Math.random()*4,rot:Math.random()*Math.PI,vr:(Math.random()-.5)*.2,color:colors[Math|Math.random()*colors.length]});
-  }
-}
-function drawConfetti(){
-  cctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
-  confetti.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;p.vy+=.02;cctx.fillStyle=p.color;cctx.save();cctx.translate(p.x,p.y);cctx.rotate(p.rot);cctx.fillRect(-p.r/2,-p.r/2,p.r,p.r);cctx.restore();});
-  confetti = confetti.filter(p=>p.y<innerHeight+30);
-  requestAnimationFrame(drawConfetti);
-}
-
-/* ---------- Game loop ---------- */
-function animate(t){
-  requestAnimationFrame(animate);
-  if(spinActive && spinPlan){
-    const {t0,dur,a0,a1}=spinPlan;
-    const p = Math.min(1,(t-t0)/dur);
-    angle = a0+(a1-a0)*(1-Math.pow(1-p,3));
-    const seg = segmentFromAngle(angle);
-    if(seg!==tickIndex){ tickIndex=seg; clack(); flapperEl.classList.add('flick-animation'); setTimeout(()=>flapperEl.classList.remove('flick-animation'),150); }
-    if(p>=1){ spinActive=false; spinPlan=null; onSpinStop(); }
-  }
-  drawWheel(angle);
-}
-
-/* ---------- UI Overlays ---------- */
-function hideOverlays(){
-  $('#winOverlay').classList.remove('show');
-  $('#loseOverlay').classList.remove('show');
-  $('#flash').classList.remove('active');
-  winSound.pause(); winSound.currentTime=0;
-}
-function celebrate(num){
-  hideOverlays(); $('#winNumber').textContent=String(num);
-  $('#winOverlay').classList.add('show'); $('#flash').classList.add('active'); burst();
-  if(soundOn) winSound.play();
-  setTimeout(hideOverlays, 34000);
-}
-function showLossOverlay(msg){
-  hideOverlays(); const el=$('#loseOverlay'); el.querySelector('span').textContent=msg;
-  el.classList.add('show'); if(soundOn) loseSound.play();
-  setTimeout(()=>el.classList.remove('show'), 4000);
-}
-
-/* ---------- Limit check ---------- */
-async function limitCheck(){
-  if(CONFIG.DEBUG) return null;
-  const res = await api('POST','/check');
-  // res.day is server day; SERVER_DAY already set from /day
-  return res.already ? res.record : null;
-}
-function showLimitMessage(rec){
-  $('#limitMsg').innerHTML = `You already spun today at <strong>${new Date(rec.ts).toLocaleTimeString()}</strong>. Result: <strong>${rec.landed}</strong> (your guess: ${rec.guess}).`;
-}
-
-/* ---------- Feed / Leaderboard ---------- */
-let allSpinsCache=[];
-const TROPHY_SVG_20 = `<svg class="trophy-ic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#F6C453" d="M18 7h2V4h-2V2H6v2H4v3h2c.1 2.5 1.6 4.6 3.7 5.3A5 5 0 0 0 7 17v2H5v3h14v-3h-2v-2c0-2-1.3-3.8-3.1-4.7C16.4 11.6 17.9 9.5 18 7Z"/></svg>`;
-function escapeHtml(str){ return (str||'').replace(/[&<>"]+/g, s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s])); }
-
-function renderEntry(s){
-  const row = document.createElement('div'); row.className='entry';
-  row.innerHTML = `
-    <div class="name">${escapeHtml(s.name||'')}</div>
-    <div class="time">${new Date(s.ts).toLocaleString()}</div>
-    <div>${s.guess??''}</div>
-    <div>${s.landed??''}</div>
-    <div>${s.win ? TROPHY_SVG_20 : ''}</div>`;
-  return row;
-}
-async function updateFeed(){
-  const daySel = $('#dayPicker').value || todayKey();
-  try{
-    if(allSpinsCache.length===0) allSpinsCache = await api('GET','/spins');
-  }catch(e){
-    $('#feed').innerHTML = `<div class="notice" style="padding:8px 10px;">Could not load spin history.</div>`;
-    return;
-  }
-  const list = allSpinsCache.filter(s=>s.day===daySel).sort((a,b)=>new Date(b.ts)-new Date(a.ts));
-  const feed = $('#feed');
-  feed.innerHTML = `<div class="entry header"><div>Name</div><div>Timestamp</div><div>Guess</div><div>Landed</div><div>Win</div></div>`;
-  if(!list.length){
-    feed.innerHTML += `<div class="notice" style="padding:8px 10px;">No spins for ${daySel} yet.</div>`;
-    $('#hotCloud').innerHTML='';
-    return;
-  }
-  list.forEach(s=> feed.appendChild(renderEntry(s)));
-  renderHotCloud(list);
-}
-function renderHotCloud(spinsForDay){
-  const cloud = $('#hotCloud'); cloud.innerHTML='';
-  const map = new Map(); for(let i=1;i<=SEG;i++) map.set(i,0);
-  spinsForDay.forEach(s=> map.set(s.landed,(map.get(s.landed)||0)+1));
-  const max = Math.max(1, ...map.values());
-  map.forEach((count,num)=>{
-    if(!count) return;
-    const b = document.createElement('div');
-    b.textContent = num; b.title = `${count} spin${count>1?'s':''} today`;
-    b.style.cssText = `font-weight:800;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:linear-gradient(180deg,#142033,#0e1626);box-shadow:0 6px 16px rgba(0,0,0,.25);transform:scale(${(.8+(count/max)*1.2).toFixed(2)});`;
-    cloud.appendChild(b);
-  });
-}
-function openBoard(){
-  const map=new Map();
-  allSpinsCache.forEach(s=>{
-    if(!map.has(s.name)) map.set(s.name,{name:s.name,wins:0,spins:0});
-    const v=map.get(s.name); v.spins++; if(s.win) v.wins++;
-  });
-  const rows=[...map.values()].map(r=>({...r,pct:r.spins?(r.wins/r.spins*100):0}));
-  rows.sort((a,b)=> b.wins - a.wins || b.pct - a.pct || a.name.localeCompare(b.name));
-  const tbody = $('#boardTable tbody'); tbody.innerHTML='';
-  rows.forEach((r,i)=> tbody.innerHTML += `<tr><td>${i+1}</td><td>${escapeHtml(r.name)}</td><td>${r.wins}</td><td>${r.spins}</td><td>${r.pct.toFixed(1)}%</td></tr>`);
-  $('#board').showModal();
-}
-
-/* ---------- Spin start/stop ---------- */
-let pendingResult=null;
-
-async function startSpin(){
-  if(spinActive || spinBtn.disabled) return;
-  const name = $('#name').value.trim();
-  const guess = Number($('#guess').value);
-  if(!name || !guess || name.startsWith('Loading') || name.startsWith('Error')){
-    return alert('Cannot spin until user information is loaded.');
-  }
-
-  // Check limit first (unless DEBUG)
-  try{
-    spinBtn.disabled = true; spinBtn.textContent='CHECKING...';
-    const already = await limitCheck();
-    if(already && !CONFIG.DEBUG){
-      showLimitMessage(already);
-      spinBtn.textContent='TRY AGAIN TOMORROW';
-      return;
-    }
-  }catch(e){
-    console.error('Limit check failed:', e);
-    spinBtn.disabled=false; spinBtn.textContent='SPIN';
-    return alert('Could not verify spin limit. Please try again.');
-  }
-
-  // Proceed to spin
-  spinBtn.textContent='SPINNING...';
-  const power = holdStart ? Math.min(2500, Date.now()-holdStart)/2500 : 0.5; holdStart=0;
-  const turns = 3 + Math.floor(Math.random()*3);
-  const randOffset = Math.random()*Math.PI*2;
-  const duration = 3000 + 3000*power;
-  spinPlan = { t0: performance.now(), dur: duration, a0: angle, a1: angle + (Math.PI*2*turns) + randOffset };
-  spinActive = true; tickIndex = segmentFromAngle(angle);
-  pendingResult = { name, guess };
-}
-
-async function onSpinStop(){
-  const { name, guess } = pendingResult;
-  const landed = segmentFromAngle(angle) + 1;
-  const win = (landed === guess);
-  pendingResult = null;
-
-  if(win) celebrate(landed); else showLossOverlay(`Landed on ${landed}.`);
-
-  // Save to server (server sets ts/day/name/email and enforces uniqueness)
-  try{
-    const saved = await api('POST','/spins', { guess, landed, win, fp: fingerprint() });
-    allSpinsCache.push(saved);
-    $('#dayPicker').value = todayKey();
-    await updateFeed();
-
-    spinBtn.textContent='TRY AGAIN TOMORROW';
-    if(!CONFIG.DEBUG){ spinBtn.disabled=true; showLimitMessage(saved); }
-    else { spinBtn.disabled=false; spinBtn.textContent='SPIN'; }
-  }catch(e){
-    if(e.status===409 && e.body && e.body.error==='already-spun'){
-      // Race condition / second tab
-      showLimitMessage(e.body.record);
-      spinBtn.textContent='TRY AGAIN TOMORROW';
-      spinBtn.disabled=true;
-      return;
-    }
-    console.warn('Save failed:', e);
-    alert('Spin complete, but failed to save to history.');
-    spinBtn.textContent='SPIN'; spinBtn.disabled=false;
-  }
-}
-
-/* ---------- Admin/Debug tools ---------- */
-function setupDebugFeatures(){
-  if(!CONFIG.DEBUG) return;
-  $('#debugIndicator').style.display='block';
-
-  // Clear ALL
-  const clearBtn = $('#clearDataBtn');
-  clearBtn.style.display='inline-block';
-  clearBtn.addEventListener('click', async ()=>{
-    if(!confirm('Clear ALL spin data?')) return;
-    try{ const r = await api('GET','/admin/reset'); allSpinsCache=[]; alert(`Cleared ${r.cleared} record(s).`); location.reload(); }
-    catch(e){ alert('Failed to clear.'); }
-  });
-
-  // Clear selected day (from picker)
-  const clearTodayBtn = $('#clearTodayBtn');
-  clearTodayBtn.style.display='inline-block';
-  clearTodayBtn.addEventListener('click', async ()=>{
-    const sel = $('#dayPicker').value || todayKey();
-    if(!confirm(`Clear data for ${sel}?`)) return;
-    try{
-      const r = await api('GET', `/admin/reset-today?date=${sel}`);
-      allSpinsCache = allSpinsCache.filter(s=> s.day!==sel);
-      alert(`Cleared ${r.cleared} record(s) for ${sel}.`);
-      updateFeed();
-    }catch(e){ alert('Failed to clear selected day.'); }
-  });
-
-  // Delete selected — keep button visible, but since feed doesn’t show checkboxes in this compact build
-  // you can add them later if needed (the route is present on the server).
-  const delBtn = $('#deleteSelectedBtn');
-  delBtn.style.display='inline-block';
-  delBtn.addEventListener('click', ()=> alert('In this compact drop-in, selection checkboxes are omitted. (Route is ready.)'));
-}
-
-/* ---------- Init ---------- */
-const guessSel = $('#guess');
-for(let i=1;i<=SEG;i++){ const o=document.createElement('option'); o.value=String(i); o.textContent=String(i); guessSel.appendChild(o); }
-
-$('#dayPicker').addEventListener('change', updateFeed);
-$('#leaderBtn').addEventListener('click', openBoard);
-$('#boardClose').addEventListener('click', ()=> $('#board').close());
-$('#soundToggle').addEventListener('change', e=>{ soundOn=e.target.checked; if(soundOn) initAudio(); });
-spinBtn.addEventListener('mousedown', ()=>{ if(spinActive) return; isHolding=true; holdStart=Date.now(); initAudio(); });
-document.addEventListener('mouseup',   ()=>{ if(!isHolding||spinActive) return; isHolding=false; startSpin(); });
-spinBtn.addEventListener('touchstart',e=>{ e.preventDefault(); if(spinActive) return; isHolding=true; holdStart=Date.now(); initAudio(); }, {passive:false});
-document.addEventListener('touchend', e=>{ e.preventDefault(); if(!isHolding||spinActive) return; isHolding=false; startSpin(); }, {passive:false});
-
-// Bootstrap in correct order: get server day -> user -> initial limit -> render
-(async function bootstrap(){
-  try{
-    const dayInfo = await api('GET','/day');
-    SERVER_DAY = dayInfo.day;
-    $('#dayPicker').value = SERVER_DAY;
-  }catch(e){
-    SERVER_DAY = todayKeyLocal();
-    $('#dayPicker').value = SERVER_DAY;
-  }
-
-  try{
-    const user = await (await fetch('/api/user')).json();
-    if(user && user.name){
-      $('#name').value = user.name;
-      const already = await limitCheck();
-      if(already && !CONFIG.DEBUG){
-        showLimitMessage(already); spinBtn.disabled=true; spinBtn.textContent='TRY AGAIN TOMORROW';
-      }else{
-        spinBtn.disabled=false; spinBtn.textContent='SPIN';
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('debug')) {
+      if (urlParams.get('debug') === 'true') {
+        sessionStorage.setItem('debugMode', 'true');
+      } else {
+        sessionStorage.removeItem('debugMode');
       }
-    }else{
-      $('#name').value='Could not load user'; throw new Error('User failed');
     }
-  }catch(err){
-    console.error('Init error:', err);
-    $('#name').value='Error loading user'; spinBtn.disabled=true; spinBtn.textContent='LOAD ERROR';
-    $('#limitMsg').textContent='Could not load user data or check spin status.';
-  }
 
-  resizeConfetti(); drawWheel(0);
-  requestAnimationFrame(animate); requestAnimationFrame(drawConfetti);
-  updateFeed(); setupDebugFeatures();
+    const CONFIG = {
+      BACKEND_URL: "/api",
+      GAME_KEY: "carnival_wheel_v1",
+      SEGMENTS: 24,
+      COLORS: ["#0e0f12", "#1f66ff", "#e9eef7"],
+      BORDER_COLOR: "#dbe7ff",
+      TICK_SOUND_GAIN: 0.25,
+      DEBUG: sessionStorage.getItem('debugMode') === 'true'
+    };
 
-  // periodic refresh (keeps feed fresh)
-  setInterval(async ()=>{
-    try{
-      const currentDay = $('#dayPicker').value;
-      const scroll = $('#feed').scrollTop;
-      allSpinsCache = await api('GET','/spins');
-      if(currentDay === todayKey()){ await updateFeed(); $('#feed').scrollTop = scroll; }
-    }catch(e){ /* ignore */ }
-  }, 20000);
-})();
-</script>
+    let spinActive = false, isHolding = false, holdStart = 0, angle = 0, spinPlan = null, tickIndex = 0;
+    let audioCtx = null, soundOn = true;
+    let pendingResult = null;
+    let allSpinsCache = [];
+
+	// Add this constant definition here
+	const TROPHY_SVG_20 = `<svg class="trophy-ic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#F6C453" d="M18 7h2V4h-2V2H6v2H4v3h2c.1 2.5 1.6 4.6 3.7 5.3A5 5 0 0 0 7 17v2H5v3h14v-3h-2v-2c0-2-1.3-3.8-3.1-4.7C16.4 11.6 17.9 9.5 18 7Z"/></svg>`;
+
+    const $ = sel => document.querySelector(sel);
+    const flapperEl = $('#flapper');
+    const spinBtn = $('#spinBtn');
+    const loseSound = $('#loseSound');
+    const winSound = $('#winSound');
+    
+    function todayKey(d = new Date()) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    const nowTs = () => new Date().toISOString();
+
+    async function api(method, path, payload) {
+      const options = { method, headers: { "Content-Type": "application/json" } };
+      if (payload) options.body = JSON.stringify(payload);
+      const res = await fetch(CONFIG.BACKEND_URL + path, options);
+      if (!res.ok) throw new Error(`Backend error ${res.status}: ${await res.text()}`);
+      return res.json();
+    }
+    
+    function fingerprint() {
+      const data = navigator.userAgent + (Intl.DateTimeFormat().resolvedOptions().timeZone || "");
+      let h = 0;
+      for (let i = 0; i < data.length; i++) {
+        h = ((h << 5) - h) + data.charCodeAt(i); h |= 0;
+      }
+      return "fp_" + Math.abs(h);
+    }
+    
+    const canvas = $('#wheel');
+    const ctx = canvas.getContext('2d');
+    const SEG = CONFIG.SEGMENTS;
+    const per = (Math.PI * 2) / SEG;
+
+    function drawWheel(a = 0) {
+      const size = canvas.width, center = size / 2, radius = center - 26;
+      ctx.clearRect(0, 0, size, size);
+      ctx.save();
+      ctx.translate(center, center);
+      ctx.rotate(a);
+      for (let i = 0; i < SEG; i++) {
+        const start = i * per;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius, start, start + per);
+        ctx.closePath();
+        ctx.fillStyle = CONFIG.COLORS[i % CONFIG.COLORS.length];
+        ctx.fill();
+        ctx.strokeStyle = CONFIG.BORDER_COLOR;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        const mid = start + per / 2;
+        ctx.save();
+        ctx.rotate(mid);
+        ctx.translate(radius * 0.72, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.fillStyle = (i % 3 === 2) ? "#0a0f17" : "#eaf2ff";
+        ctx.font = "700 36px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(i + 1), 0, 0);
+        ctx.restore();
+      }
+      ctx.beginPath();
+      ctx.fillStyle = "#1a2230";
+      ctx.arc(0, 0, 54, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = "#2a3a54";
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function segmentFromAngle(a) {
+      const flapperAngle = 3 * Math.PI / 2;
+      const effectiveAngle = flapperAngle - a;
+      const normalizedAngle = (effectiveAngle % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
+      return Math.floor(normalizedAngle / per);
+    }
+    
+    function animate(t) {
+      requestAnimationFrame(animate);
+      if (spinActive && spinPlan) {
+        const { t0, dur, a0, a1 } = spinPlan;
+        const p = Math.min(1, (t - t0) / dur);
+        angle = a0 + (a1 - a0) * (1 - Math.pow(1 - p, 3));
+        const seg = segmentFromAngle(angle);
+        if (seg !== tickIndex) {
+          tickIndex = seg;
+          clack();
+          flapperEl.classList.add('flick-animation');
+          setTimeout(() => flapperEl.classList.remove('flick-animation'), 150);
+        }
+        if (p >= 1) {
+          spinActive = false;
+          spinPlan = null;
+          onSpinStop();
+        }
+      }
+      drawWheel(angle);
+    }
+
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function clack() {
+      if (!soundOn || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g).connect(audioCtx.destination);
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(350, now);
+      g.gain.setValueAtTime(CONFIG.TICK_SOUND_GAIN, now);
+      g.gain.linearRampToValueAtTime(0.0001, now + 0.1);
+      o.start(now);
+      o.stop(now + 0.1);
+    }
+
+    const confettiCanvas = $('#confetti');
+    const cctx = confettiCanvas.getContext('2d');
+    let confetti = [];
+    function resizeConfetti(){ confettiCanvas.width = innerWidth; confettiCanvas.height = innerHeight; }
+    addEventListener('resize', resizeConfetti);
+    
+    function burst() {
+        confetti = [];
+        const count = 200;
+        const colors = ['#FBBF24', '#3B82F6', '#EC4899', '#EF4444', '#8B5CF6', '#10B981'];
+        for (let i = 0; i < count; i++) {
+            confetti.push({ x: Math.random() * innerWidth, y: -20 - Math.random() * 40, vx: (Math.random() - .5) * 2, vy: 2 + Math.random() * 3, r: 3 + Math.random() * 4, rot: Math.random() * Math.PI, vr: (Math.random() - .5) * .2, color: colors[Math.floor(Math.random() * colors.length)] });
+        }
+    }
+    function drawConfetti() {
+        cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confetti.forEach(p => {
+            p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vy += .02;
+            cctx.fillStyle = p.color;
+            cctx.save(); cctx.translate(p.x, p.y); cctx.rotate(p.rot);
+            cctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r); cctx.restore();
+        });
+        confetti = confetti.filter(p => p.y < innerHeight + 30);
+        requestAnimationFrame(drawConfetti);
+    }
+
+    // Replace the entire startSpin function
+	async function startSpin() {
+		if (spinActive || spinBtn.disabled) return; // Prevent spins if active or button disabled
+
+		const name = $('#name').value.trim();
+		const guess = Number($('#guess').value);
+		if (!name || !guess || name.startsWith('Loading') || name.startsWith('Error')) {
+			return alert('Cannot spin until user information is loaded.');
+		}
+
+		// Disable button immediately
+		spinBtn.disabled = true;
+		spinBtn.textContent = 'CHECKING...';
+		isHolding = false; // Reset holding state
+
+		try {
+			const alreadyRecord = await limitCheck(); 
+			console.log('Limit Check Result:', alreadyRecord);
+
+			// Block if already spun (and not in debug mode)
+			if (alreadyRecord && !CONFIG.DEBUG) { 
+			console.log('Spin blocked: Limit reached.');
+			showLimitMessage(alreadyRecord);
+			spinBtn.textContent = 'TRY AGAIN TOMORROW'; // <<< Correct text here
+			// Button remains disabled.
+			return; 
+			}
+			
+			// --- Spin is Allowed ---
+			console.log('Spin allowed, proceeding...');
+			spinBtn.textContent = 'SPINNING...'; // Button remains disabled during spin
+
+			const power = holdStart ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5;
+			holdStart = 0; 
+			const turns = 3 + Math.floor(Math.random() * 3);
+			const randOffset = Math.random() * Math.PI * 2;
+			const duration = 3000 + 3000 * power;
+
+			spinPlan = { t0: performance.now(), dur: duration, a0: angle, a1: angle + (Math.PI * 2 * turns) + randOffset };
+			spinActive = true;
+			tickIndex = segmentFromAngle(angle);
+			pendingResult = { name, guess };
+
+		} catch (err) { // Catch errors from limitCheck
+			console.error("Limit check failed, spin blocked:", err);
+			alert('Could not verify spin limit. Please try again.');
+			spinBtn.disabled = false; // Re-enable button on check failure ONLY
+			spinBtn.textContent = 'SPIN';
+		}
+		// No finally block needed here for holding state reset
+	}
+
+    // Replace the entire onSpinStop function with this corrected version
+	async function onSpinStop() { 
+		// Get results immediately
+		const { name, guess } = pendingResult; 
+		const landed = segmentFromAngle(angle) + 1;
+		const win = (landed === guess);
+		// Create the record *before* clearing pendingResult
+		const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() }; 
+		
+		pendingResult = null; // Clear pending state
+
+		// Show win/loss feedback first
+		if (win) { celebrate(landed); } else { showLossOverlay(`Landed on ${landed}.`); }
+
+		try {
+			// Save the spin result to the database
+			const savedRecord = await api('POST', '/spins', record);
+			// Use the returned record (which might include the _id) for consistency
+			allSpinsCache.push(savedRecord || record); // Update local cache
+			$('#dayPicker').value = todayKey(); // Ensure date picker is correct
+			updateFeed(); // Refresh the activity feed
+			
+			// --- Final Button State ---
+			spinBtn.textContent = 'TRY AGAIN TOMORROW'; // Set text after successful spin
+			
+			if (!CONFIG.DEBUG) {
+				// If not in debug mode, the spin is done for the day. Disable the button.
+				spinBtn.disabled = true; 
+				showLimitMessage(savedRecord || record); // Show the limit message using the data we just saved/processed
+			} else {
+				// If in debug mode, re-enable the button for another spin.
+				spinBtn.disabled = false; 
+				spinBtn.textContent = 'SPIN'; // Reset text for next debug spin
+			}
+
+		} catch (e) {
+			// Handle errors during saving (rare, but possible)
+			console.warn('Backend save failed', e);
+			alert("Spin complete, but failed to save to history. Button re-enabled.");
+			spinBtn.textContent = 'SPIN'; // Reset text
+			spinBtn.disabled = false;    // Re-enable button on save failure
+		} 
+		// No complex finally block needed; state handled within try/catch
+	}
+    
+    function hideOverlays() {
+      $('#winOverlay').classList.remove('show');
+      $('#loseOverlay').classList.remove('show');
+      $('#flash').classList.remove('active');
+      winSound.pause(); // Stop win sound
+      winSound.currentTime = 0; // Rewind win sound
+    }
+    function celebrate(num) {
+      hideOverlays(); // Stops any previous sounds
+      $('#winNumber').textContent = String(num);
+      $('#winOverlay').classList.add('show');
+      $('#flash').classList.add('active');
+      burst();
+      if (soundOn) winSound.play(); // Play win sound
+      setTimeout(hideOverlays, 34000);
+    }
+    function showLossOverlay(msg) {
+      hideOverlays(); // Stops any previous sounds
+      const el = $('#loseOverlay');
+      el.querySelector('span').textContent = msg;
+      el.classList.add('show');
+      if (soundOn) loseSound.play(); // Play lose sound
+      setTimeout(() => el.classList.remove('show'), 4000); // Keep lose message shorter
+    }
+
+    // CORRECTED limitCheck FUNCTION
+	async function limitCheck() {
+		// No try...catch here. Let errors propagate to the caller.
+		console.log('Checking spin limit. Debug mode:', CONFIG.DEBUG);
+		if (CONFIG.DEBUG) {
+			console.log('Debug mode ON, bypassing server check.');
+			return null; // Allow spin in debug mode
+		}
+
+		console.log('Debug mode OFF, calling /api/check...');
+		const res = await api('POST', '/check'); 
+		console.log('Backend /check response:', res); 
+
+		return res.already ? res.record : null; // Return record if spun, null otherwise
+	}
+
+    function showLimitMessage(rec) {
+      $('#limitMsg').innerHTML = `You already spun today at <strong>${new Date(rec.ts).toLocaleTimeString()}</strong>. Result: <strong>${rec.landed}</strong> (your guess: ${rec.guess}).`;
+    }
+
+    function renderEntry(s) {
+		const row = document.createElement('div');
+		row.className = 'entry';
+		// Conditionally add checkbox in debug mode
+		const checkboxHTML = CONFIG.DEBUG 
+			? `<div><input type="checkbox" class="delete-checkbox" data-id="${s._id}"></div>` 
+			: ''; 
+
+		row.innerHTML = `
+			${checkboxHTML} 
+			<div class="name">${escapeHtml(s.name || '')}</div>
+			<div class="time">${new Date(s.ts).toLocaleString()}</div>
+			<div>${s.guess || ''}</div>
+			<div>${s.landed || ''}</div>
+			<div>${s.win ? TROPHY_SVG_20 : ''}</div> 
+		`;
+		return row;
+	}
+    
+    async function updateFeed() {
+      const daySel = $('#dayPicker').value || todayKey();
+      try {
+        if (allSpinsCache.length === 0) {
+            allSpinsCache = await api('GET', '/spins');
+        }
+        const list = allSpinsCache.filter(s => s.day === daySel).sort((a, b) => new Date(b.ts) - new Date(a.ts));
+        const feed = $('#feed');
+
+		// --- Modify Header Rendering ---
+		const headerCheckbox = CONFIG.DEBUG ? '<div>Del?</div>' : '';
+		feed.innerHTML = `<div class="entry header">${headerCheckbox}<div>Name</div><div>Timestamp</div><div>Guess</div><div>Landed</div><div>Win</div></div>`;
+		// --- End of Header Modification ---
+
+        /*feed.innerHTML = `<div class="entry header"><div>Name</div><div>Timestamp</div><div>Guess</div><div>Landed</div><div>Win</div></div>`;*/
+        if (!list.length) {
+          feed.innerHTML += `<div class="notice" style="padding:8px 10px;">No spins for ${daySel} yet.</div>`;
+          $('#hotCloud').innerHTML = '';
+          return;
+        }
+        list.forEach(s => feed.appendChild(renderEntry(s)));
+        renderHotCloud(list);
+      } catch (e) {
+        console.warn('Backend fetch failed', e);
+        $('#feed').innerHTML = `<div class="notice" style="padding:8px 10px;">Could not load spin history.</div>`;
+      }
+    }
+
+    function renderHotCloud(spinsForDay) {
+        const cloud = $('#hotCloud'); cloud.innerHTML = '';
+        const freq = new Map(); for (let i = 1; i <= SEG; i++) freq.set(i, 0);
+        spinsForDay.forEach(s => freq.set(s.landed, (freq.get(s.landed) || 0) + 1));
+        const max = Math.max(1, ...freq.values());
+        freq.forEach((count, num) => {
+            if (count === 0) return;
+            const b = document.createElement('div');
+            b.textContent = num;
+            b.title = `${count} spin${count > 1 ? 's' : ''} today`;
+            b.style.cssText = `font-weight:800; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background:linear-gradient(180deg,#142033,#0e1626); box-shadow:0 6px 16px rgba(0,0,0,.25); transform:scale(${(.8 + (count / max) * 1.2).toFixed(2)});`;
+            cloud.appendChild(b);
+        });
+    }
+
+    function openBoard() {
+        const map = new Map();
+        allSpinsCache.forEach(s => {
+            if (!map.has(s.name)) map.set(s.name, { name: s.name, wins: 0, spins: 0 });
+            const v = map.get(s.name); v.spins++; if (s.win) v.wins++;
+        });
+        const rows = [...map.values()].map(r => ({ ...r, pct: r.spins ? (r.wins / r.spins * 100) : 0 }));
+        rows.sort((a, b) => b.wins - a.wins || b.pct - a.pct || a.name.localeCompare(b.name));
+        const tbody = $('#boardTable tbody'); tbody.innerHTML = '';
+        rows.forEach((r, i) => {
+            tbody.innerHTML += `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}</td><td>${r.wins}</td><td>${r.spins}</td><td>${r.pct.toFixed(1)}%</td></tr>`;
+        });
+        $('#board').showModal();
+    }
+
+    function escapeHtml(str) { return str.replace(/[&<>"]+/g, s => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[s])); }
+    
+    function setupDebugFeatures() {
+      if (!CONFIG.DEBUG) return;
+      $('#debugIndicator').style.display = 'block';
+      const clearBtn = $('#clearDataBtn');
+      clearBtn.style.display = 'inline-block';
+      clearBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to clear ALL spin data?')) {
+          try {
+            const result = await api('GET', '/admin/reset');
+            allSpinsCache = [];
+            alert(`Backend cleared successfully. Removed ${result.cleared} records.`);
+            location.reload();
+          } catch (err) { alert('An error occurred.'); }
+        }
+      });
+
+	  // --- Add logic for Delete Selected button ---
+	  const deleteSelectedBtn = $('#deleteSelectedBtn');
+	  deleteSelectedBtn.style.display = 'inline-block'; // Show button
+	  deleteSelectedBtn.addEventListener('click', async () => {
+			const checkedBoxes = document.querySelectorAll('.delete-checkbox:checked');
+			if (checkedBoxes.length === 0) {
+				return alert('Please select at least one record to delete.');
+			}
+
+			const idsToDelete = Array.from(checkedBoxes).map(cb => cb.dataset.id);
+
+			if (confirm(`Are you sure you want to delete ${idsToDelete.length} selected record(s)? This cannot be undone.`)) {
+				try {
+					const result = await api('POST', '/admin/delete-selected', { ids: idsToDelete });
+					// Remove deleted items from cache
+					allSpinsCache = allSpinsCache.filter(s => !idsToDelete.includes(s._id));
+					alert(`Successfully deleted ${result.deleted} record(s).`);
+					updateFeed(); // Refresh the feed immediately
+				} catch (err) {
+					console.error('Failed to delete selected:', err);
+					alert('An error occurred while deleting records. Check console.');
+				}
+			}
+	  });
+	  // --- End of Delete Selected logic ---
+
+	  // --- Add logic for Clear Today button ---
+	  const clearTodayBtn = $('#clearTodayBtn');
+	  clearTodayBtn.style.display = 'inline-block'; // Make it visible
+	  clearTodayBtn.addEventListener('click', async () => {
+		const selectedDate = $('#dayPicker').value || todayKey(); // Get date from picker or default to today
+		if (confirm(`Are you sure you want to clear spin data for ${selectedDate}?`)) { // Update confirmation message
+			try {
+			// Send the selected date as a query parameter
+			const result = await api('GET', `/admin/reset-today?date=${selectedDate}`); 
+			
+			// Update cache more accurately based on the cleared date
+			allSpinsCache = allSpinsCache.filter(s => s.day !== selectedDate); 
+			
+			alert(`Cleared data for ${selectedDate} successfully. Removed ${result.cleared} records.`);
+			updateFeed(); // Refresh feed instead of reloading page
+			// Optionally reload if you prefer a full refresh: location.reload(); 
+			} catch (err) { 
+				console.error("Error clearing selected day's data:", err); // Log error details
+				alert(`An error occurred clearing data for ${selectedDate}.`); 
+			}
+		}
+	  });
+	// --- End of Clear Today logic ---
+    }
+
+    const guessSel = $('#guess');
+    for (let i = 1; i <= SEG; i++) {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = String(i);
+      guessSel.appendChild(opt);
+    }
+    
+    $('#dayPicker').value = todayKey();
+    $('#dayPicker').addEventListener('change', updateFeed);
+    $('#leaderBtn').addEventListener('click', openBoard);
+    $('#boardClose').addEventListener('click', () => $('#board').close());
+    $('#soundToggle').addEventListener('change', e => { soundOn = e.target.checked; if (soundOn) initAudio(); });
+    spinBtn.addEventListener('mousedown', () => { if (spinActive) return; isHolding = true; holdStart = Date.now(); initAudio(); });
+    document.addEventListener('mouseup', () => { if (!isHolding || spinActive) return; isHolding = false; startSpin(); });
+    spinBtn.addEventListener('touchstart', e => { e.preventDefault(); if (spinActive) return; isHolding = true; holdStart = Date.now(); initAudio(); }, { passive: false });
+    document.addEventListener('touchend', e => { e.preventDefault(); if (!isHolding || spinActive) return; isHolding = false; startSpin(); }, { passive: false });
+    
+    // Find this block near the end of the script
+	fetch('/api/user')
+		.then(res => res.json())
+		.then(user => {
+			if (user && user.name) {
+				$('#name').value = user.name;
+				// ---- ADD INITIAL LIMIT CHECK HERE ----
+				return limitCheck(); // Chain the promise
+			} else {
+				$('#name').value = 'Could not load user';
+				throw new Error('User info failed to load'); // Stop if user load fails
+			}
+		})
+		.then(alreadyRecord => {
+			// ---- SET INITIAL BUTTON STATE ----
+			console.log('Initial Limit Check Result:', alreadyRecord);
+			if (alreadyRecord && !CONFIG.DEBUG) {
+				showLimitMessage(alreadyRecord);
+				spinBtn.disabled = true;
+				spinBtn.textContent = 'TRY AGAIN TOMORROW'; // <-- Updated Text
+			} else {
+				spinBtn.disabled = false; // Enable if not spun or in debug
+				spinBtn.textContent = 'SPIN';
+			}
+		})
+		.catch(err => {
+			console.error('Error during initial load or limit check:', err);
+			$('#name').value = 'Error loading user';
+			spinBtn.disabled = true;
+			spinBtn.textContent = 'LOAD ERROR';
+			$('#limitMsg').textContent = 'Could not load user data or check spin status.';
+		});
+
+    resizeConfetti();
+    drawWheel(0);
+    requestAnimationFrame(animate);
+    requestAnimationFrame(drawConfetti);
+    updateFeed();
+    setupDebugFeatures();
+
+    setInterval(async () => {
+      try {
+        const currentDay = $('#dayPicker').value;
+        const currentScroll = $('#feed').scrollTop;
+        allSpinsCache = await api('GET', '/spins');
+        if (currentDay === todayKey()) {
+            updateFeed();
+            $('#feed').scrollTop = currentScroll;
+        }
+      } catch (e) {
+        console.warn("Periodic data refresh failed.", e);
+      }
+    }, 20000);
+  </script>
 </body>
 </html>

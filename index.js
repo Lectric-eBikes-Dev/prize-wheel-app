@@ -1,52 +1,53 @@
-// index.js
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const path = require('path');
-const { MongoClient, ObjectId } = require('mongodb');
+const path = require('path'); // Ensure path is required
+const { MongoClient, ObjectId } = require('mongodb'); // Import ObjectId
 const MongoStore = require('connect-mongo');
 
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
-// ----- ENV -----
-const MONGODB_URI       = process.env.MONGODB_URI;
-const GOOGLE_CLIENT_ID  = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_SECRET     = process.env.GOOGLE_CLIENT_SECRET;
-const SESSION_SECRET    = process.env.SESSION_SECRET;
-const ALLOWED_DOMAIN    = process.env.ALLOWED_DOMAIN || 'lectricebikes.com';
-// Timezone used to compute the *app* day (so client & server agree)
-const APP_TZ            = process.env.APP_TZ || 'America/Phoenix';
+// --- Environment Variables ---
+const MONGODB_URI = process.env.MONGODB_URI;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET;
+const ALLOWED_DOMAIN = 'lectricebikes.com';
 
-// ----- DB -----
+// --- Database Connection ---
 const client = new MongoClient(MONGODB_URI);
 let spinsCollection;
 
+// ---- NEW: pick an app timezone for “day” calculations ----
+const APP_TZ = process.env.APP_TZ || 'America/Phoenix'; // choose your org’s TZ
+
 function dayString(d = new Date()) {
-  // en-CA yields YYYY-MM-DD; timeZone ensures calendar day is stable for your org
+  // en-CA gives YYYY-MM-DD
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: APP_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(d);
 }
 
+// ---- DB connection: ADD a unique index on (day,email) ----
 async function connectToDatabase() {
   try {
     await client.connect();
-    const db = client.db('prizeWheelDB');
-    spinsCollection = db.collection('spins');
-    console.log('[DB] Connected');
+    const database = client.db('prizeWheelDB');
+    spinsCollection = database.collection('spins');
+    console.log('Successfully connected to MongoDB Atlas!');
 
-    // Enforce one spin per email per day at the DB layer
+    // Enforce 1 spin per (day,email) at the DB level
     await spinsCollection.createIndex({ day: 1, email: 1 }, { unique: true });
   } catch (err) {
-    console.error('[DB] Failed to connect', err);
+    console.error('Failed to connect to MongoDB', err);
     process.exit(1);
   }
 }
 
-// ----- Auth -----
+// --- Authentication Setup ---
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
@@ -61,12 +62,17 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-passport.use(new GoogleStrategy(
-  { clientID: GOOGLE_CLIENT_ID, clientSecret: GOOGLE_SECRET, callbackURL: '/auth/google/callback' },
+passport.use(new GoogleStrategy({
+    clientID: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    callbackURL: '/auth/google/callback'
+  },
   (accessToken, refreshToken, profile, done) => {
-    // Restrict to your Google Workspace domain
-    if (profile._json && profile._json.hd === ALLOWED_DOMAIN) return done(null, profile);
-    return done(new Error('Invalid domain'), null);
+    if (profile._json.hd === ALLOWED_DOMAIN) {
+      return done(null, profile);
+    } else {
+      return done(new Error('Invalid domain.'), null);
+    }
   }
 ));
 passport.serializeUser((user, done) => done(null, user));
@@ -77,61 +83,66 @@ function isLoggedIn(req, res, next) {
   res.redirect('/auth/google');
 }
 
-// ----- Auth Routes -----
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'], hd: ALLOWED_DOMAIN })
-);
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login-failed' }),
-  (req, res) => res.redirect('/')
-);
-app.get('/login-failed', (req, res) => {
-  res.status(401).send(`<h1>Login Failed</h1><p>You must use an @${ALLOWED_DOMAIN} account.</p>`);
-});
+// --- Auth Routes ---
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], hd: ALLOWED_DOMAIN }));
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login-failed' }), (req, res) => res.redirect('/'));
+app.get('/login-failed', (req, res) => res.send('<h1>Login Failed</h1><p>You must use a valid @' + ALLOWED_DOMAIN + ' account.</p>'));
 
-// ----- API -----
+// --- API Routes ---
 app.use(express.json());
 
-// Who am I
 app.get('/api/user', isLoggedIn, (req, res) => {
   res.json({ name: req.user.displayName, email: req.user.emails[0].value });
 });
 
-// Server authoritative day (client uses this to align UI)
+// ---- NEW: expose the server’s “today” in the app timezone ----
 app.get('/api/day', isLoggedIn, (req, res) => {
   const now = new Date();
-  res.json({ day: dayString(now), now: now.toISOString(), tz: APP_TZ });
+  return res.json({
+    day: dayString(now),
+    now: now.toISOString(),
+    tz: APP_TZ
+  });
 });
 
-// Get all spins (for feed/board)
 app.get('/api/spins', isLoggedIn, async (req, res) => {
+  console.log('GET /api/spins request received'); // Add logging
   try {
-    const all = await spinsCollection.find({}).toArray();
-    res.json(all);
-  } catch (err) {
-    console.error('[GET /api/spins] Error:', err);
+    const allSpins = await spinsCollection.find({}).toArray();
+    console.log(`Found ${allSpins.length} spins.`); // Log count
+    res.json(allSpins);
+  } catch (error) {
+    console.error('Failed to fetch spins:', error); // Log the actual error
     res.status(500).json({ error: 'Failed to fetch spins' });
   }
 });
 
-// Save a spin (server sets day+ts and enforces one per day)
+// ---- Server now sets ts + day authoritatively and handles duplicates ----
 app.post('/api/spins', isLoggedIn, async (req, res) => {
   try {
     const now = new Date();
     const serverDay = dayString(now);
+
     const doc = {
+      // server authoritative fields
       ts: now.toISOString(),
       day: serverDay,
       name: req.user.displayName,
       email: req.user.emails[0].value,
+
+      // client-provided outcome fields
       guess: req.body?.guess,
       landed: req.body?.landed,
       win: !!req.body?.win,
-      fp: req.body?.fp || null,
+      fp: req.body?.fp || null
     };
 
-    // minimal validation
-    if (!doc.guess || doc.landed == null || typeof doc.win !== 'boolean') {
+    // quick validation
+    if (
+      !doc.guess ||
+      doc.landed == null ||
+      typeof doc.win !== 'boolean'
+    ) {
       return res.status(400).json({ error: 'Missing required spin data fields.' });
     }
 
@@ -140,86 +151,107 @@ app.post('/api/spins', isLoggedIn, async (req, res) => {
       const saved = await spinsCollection.findOne({ _id: result.insertedId });
       return res.json(saved);
     } catch (e) {
+      // E11000 duplicate key = user already spun today
       if (e && e.code === 11000) {
-        // Duplicate key => already spun today
         const existing = await spinsCollection.findOne({ day: serverDay, email: doc.email });
         return res.status(409).json({ error: 'already-spun', record: existing });
       }
       throw e;
     }
-  } catch (err) {
-    console.error('[POST /api/spins] Error:', err);
+  } catch (error) {
+    console.error('Failed to save spin:', error);
     res.status(500).json({ error: 'Failed to save spin' });
   }
 });
 
-// Check limit (has user spun today?)
+// ---- Server-side check now uses the same dayString() ----
 app.post('/api/check', isLoggedIn, async (req, res) => {
   try {
     const serverDay = dayString(new Date());
     const userEmail = req.user.emails[0].value;
     const hit = await spinsCollection.findOne({ day: serverDay, email: userEmail });
     res.json({ already: !!hit, record: hit || null, day: serverDay });
-  } catch (err) {
-    console.error('[POST /api/check] Error:', err);
+  } catch (error) {
+    console.error('Failed to check limit:', error);
     res.status(500).json({ error: 'Failed to check limit' });
   }
 });
 
-// ----- Admin (use from DEBUG mode only) -----
+// --- Admin Routes (Debug Only) ---
 app.get('/api/admin/reset', isLoggedIn, async (req, res) => {
+  // We rely on the frontend CONFIG.DEBUG check before calling this
   try {
-    const r = await spinsCollection.deleteMany({});
-    res.json({ ok: true, cleared: r.deletedCount });
-  } catch (err) {
-    console.error('[GET /api/admin/reset] Error:', err);
+    const deleteResult = await spinsCollection.deleteMany({});
+    res.json({ ok: true, cleared: deleteResult.deletedCount });
+  } catch (error) {
+     console.error('Failed to clear data:', error);
     res.status(500).json({ error: 'Failed to clear data' });
   }
 });
 
-// Clear selected day (?date=YYYY-MM-DD)
 app.get('/api/admin/reset-today', isLoggedIn, async (req, res) => {
-  const dateToClear = req.query.date;
+  // We rely on the frontend CONFIG.DEBUG check before calling this
+  
+  // Get the date string from the query parameter sent by the frontend
+  const dateToClear = req.query.date; 
+
   if (!dateToClear || !/^\d{4}-\d{2}-\d{2}$/.test(dateToClear)) {
-    return res.status(400).json({ error: 'Invalid or missing date parameter (YYYY-MM-DD).' });
+      // Basic validation for YYYY-MM-DD format
+      return res.status(400).json({ error: 'Invalid or missing date parameter. Format: YYYY-MM-DD' });
   }
+
+  console.log(`Attempting to clear records for date: ${dateToClear}`); // Add logging
+
   try {
-    const r = await spinsCollection.deleteMany({ day: dateToClear });
-    res.json({ ok: true, cleared: r.deletedCount });
-  } catch (err) {
-    console.error('[GET /api/admin/reset-today] Error:', err);
+    const deleteResult = await spinsCollection.deleteMany({ day: dateToClear });
+    console.log(`Cleared ${deleteResult.deletedCount} records for ${dateToClear}`); // Log result
+    res.json({ ok: true, cleared: deleteResult.deletedCount });
+  } catch (error) {
+    console.error(`Failed to clear data for ${dateToClear}:`, error);
     res.status(500).json({ error: `Failed to clear data for ${dateToClear}` });
   }
 });
 
-// Delete selected by _id
 app.post('/api/admin/delete-selected', isLoggedIn, async (req, res) => {
-  const { ids } = req.body || {};
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: 'Invalid or empty IDs array' });
-  }
-  let objectIds;
-  try {
-    objectIds = ids.map(id => {
-      if (!ObjectId.isValid(id)) throw new Error(`Invalid ObjectId: ${id}`);
-      return new ObjectId(id);
-    });
-  } catch (err) {
-    return res.status(400).json({ error: `Invalid ID format. ${err.message}` });
-  }
-  try {
-    const r = await spinsCollection.deleteMany({ _id: { $in: objectIds } });
-    res.json({ ok: true, deleted: r.deletedCount });
-  } catch (err) {
-    console.error('[POST /api/admin/delete-selected] Error:', err);
-    res.status(500).json({ error: 'Failed to delete selected spins' });
-  }
+    // We rely on the frontend CONFIG.DEBUG check before calling this
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'Invalid or empty IDs array' });
+    }
+
+    // --- Robust ObjectId Conversion ---
+    let objectIds;
+    try {
+        objectIds = ids.map(id => {
+             // Add explicit check for valid hex string format BEFORE conversion
+             if (!ObjectId.isValid(id)) { 
+                 throw new Error(`Invalid ObjectId format: ${id}`);
+             }
+             return new ObjectId(id);
+        });
+    } catch (error) {
+        console.error('ObjectId conversion error:', error.message);
+        return res.status(400).json({ error: `Invalid ID format provided. ${error.message}` });
+    }
+    // --- End Robust Conversion ---
+
+    try {
+        const deleteResult = await spinsCollection.deleteMany({ _id: { $in: objectIds } });
+        res.json({ ok: true, deleted: deleteResult.deletedCount });
+    } catch (error) {
+        console.error('Failed to delete selected spins:', error);
+        res.status(500).json({ error: 'Failed to delete selected spins' });
+    }
 });
 
-// ----- Frontend -----
+
+// --- Serve Frontend ---
 app.use(isLoggedIn, express.static(path.join(__dirname, 'public')));
 
-// ----- Start -----
+// --- Start Server ---
 connectToDatabase().then(() => {
-  app.listen(PORT, () => console.log(`Server listening on :${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
 });
