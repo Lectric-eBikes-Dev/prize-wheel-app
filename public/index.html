@@ -141,6 +141,7 @@
             <button type="button" id="spinBtn" class="btn primary" aria-pressed="false">SPIN</button>
             <button type="button" id="clearDataBtn" class="btn" style="display:none;">Clear Data</button>
 			<button type="button" id="clearTodayBtn" class="btn" style="display:none;">Clear Today's Data</button>
+			<button type="button" id="testWinBtn" class="btn" style="display:none;">Test Win</button>
             <span class="hold-hint">Press & hold to power up, release to spin.</span>
           </div>
           <div style="grid-column:1/-1" class="notice" id="limitMsg"></div>
@@ -366,6 +367,18 @@
     }
     function drawConfetti() {
         cctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+		// --- NEW LOGIC ---
+        // If the win overlay is showing, continuously add new confetti
+        if ($('#winOverlay').classList.contains('show') && Math.random() > 0.9) { // Randomly add new particles
+            const count = 5; // Add this many particles per frame
+            const colors = ['#FBBF24', '#3B82F6', '#EC4899', '#EF4444', '#8B5CF6', '#10B981'];
+            for (let i = 0; i < count; i++) {
+                confetti.push({ x: Math.random() * innerWidth, y: -20 - Math.random() * 40, vx: (Math.random() - .5) * 2, vy: 2 + Math.random() * 3, r: 3 + Math.random() * 4, rot: Math.random() * Math.PI, vr: (Math.random() - .5) * .2, color: colors[Math.floor(Math.random() * colors.length)] });
+            }
+        }
+        // --- END NEW LOGIC ---
+
         confetti.forEach(p => {
             p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vy += .02;
             cctx.fillStyle = p.color;
@@ -661,7 +674,19 @@
 			}
 		}
 	  });
-	// --- End of Clear Today logic ---
+	  // --- End of Clear Today logic ---
+
+	  // --- ADD THIS LOGIC FOR TEST WIN BUTTON ---
+      const testWinBtn = $('#testWinBtn');
+      testWinBtn.style.display = 'inline-block'; // Make it visible
+      testWinBtn.addEventListener('click', () => {
+          console.log('DEBUG: Forcing win celebration...');
+          // Use a random number for the test
+          const testNum = Math.floor(Math.random() * CONFIG.SEGMENTS) + 1;
+          celebrate(testNum); 
+      });
+      // --- END OF TEST WIN LOGIC ---
+
     }
 
     const guessSel = $('#guess');
