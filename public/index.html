@@ -683,58 +683,76 @@
     document.addEventListener('touchend', e => { e.preventDefault(); if (!isHolding || spinActive) return; isHolding = false; startSpin(); }, { passive: false });
     
     // Find this block near the end of the script
-	fetch('/api/user')
-		.then(res => res.json())
-		.then(user => {
-			if (user && user.name) {
-				$('#name').value = user.name;
-				// ---- ADD INITIAL LIMIT CHECK HERE ----
-				return limitCheck(); // Chain the promise
-			} else {
-				$('#name').value = 'Could not load user';
-				throw new Error('User info failed to load'); // Stop if user load fails
-			}
-		})
-		.then(alreadyRecord => {
-			// ---- SET INITIAL BUTTON STATE ----
-			console.log('Initial Limit Check Result:', alreadyRecord);
-			if (alreadyRecord && !CONFIG.DEBUG) {
-				showLimitMessage(alreadyRecord);
-				spinBtn.disabled = true;
-				spinBtn.textContent = 'TRY AGAIN TOMORROW'; // <-- Updated Text
-			} else {
-				spinBtn.disabled = false; // Enable if not spun or in debug
-				spinBtn.textContent = 'SPIN';
-			}
-		})
-		.catch(err => {
-			console.error('Error during initial load or limit check:', err);
-			$('#name').value = 'Error loading user';
-			spinBtn.disabled = true;
-			spinBtn.textContent = 'LOAD ERROR';
-			$('#limitMsg').textContent = 'Could not load user data or check spin status.';
-		});
+	// --- NEW INITIALIZATION LOGIC ---
+
+    // 1. Fetch server day and user info at the same time
+    Promise.all([
+        fetch('/api/day').then(res => res.json()),
+        fetch('/api/user').then(res => res.json())
+    ])
+    .then(([dayInfo, user]) => {
+        // 2. Set Server Day
+        console.log('Server day info:', dayInfo);
+        SERVER_DAY = dayInfo.day; // <-- This is the new part
+        $('#dayPicker').value = SERVER_DAY;
+
+        // 3. Set User Info
+        if (user && user.name) {
+            $('#name').value = user.name;
+        } else {
+            $('#name').value = 'Could not load user';
+            throw new Error('User info failed to load');
+        }
+        
+        // 4. Check Spin Limit (now that user is confirmed)
+        return limitCheck();
+    })
+    .then(alreadyRecord => {
+        // 5. Set Initial Button State
+        console.log('Initial Limit Check Result:', alreadyRecord);
+        if (alreadyRecord && !CONFIG.DEBUG) {
+            showLimitMessage(alreadyRecord);
+            spinBtn.disabled = true;
+            spinBtn.textContent = 'TRY AGAIN TOMORROW';
+        } else {
+            spinBtn.disabled = false;
+            spinBtn.textContent = 'SPIN';
+        }
+    })
+    .catch(err => {
+        // 6. Handle any failure from above
+        console.error('Error during initial load or limit check:', err);
+        $('#name').value = $('#name').value.startsWith('Load') ? 'Error loading user' : $('#name').value;
+        spinBtn.disabled = true;
+        spinBtn.textContent = 'LOAD ERROR';
+        $('#limitMsg').textContent = 'Could not load user data or check spin status.';
+    })
+    .finally(() => {
+        // 7. Load the feed *after* all setup is complete
+        updateFeed(); 
+    });
 
     resizeConfetti();
     drawWheel(0);
     requestAnimationFrame(animate);
     requestAnimationFrame(drawConfetti);
-    updateFeed();
+    // updateFeed(); // <-- This is now in the .finally() block above
     setupDebugFeatures();
 
-    setInterval(async () => {
-      try {
-        const currentDay = $('#dayPicker').value;
-        const currentScroll = $('#feed').scrollTop;
-        allSpinsCache = await api('GET', '/spins');
-        if (currentDay === todayKey()) {
-            updateFeed();
-            $('#feed').scrollTop = currentScroll;
-        }
-      } catch (e) {
-        console.warn("Periodic data refresh failed.", e);
-      }
-    }, 20000);
+	setInterval(async () => {
+		try {
+			const currentDay = $('#dayPicker').value;
+			const currentScroll = $('#feed').scrollTop;
+			allSpinsCache = await api('GET', '/spins');
+        	// Only refresh feed if user is looking at the authoritative server day
+			if (currentDay === SERVER_DAY) { 
+				updateFeed();
+				$('#feed').scrollTop = currentScroll;
+			}
+		} catch (e) {
+			console.warn("Periodic data refresh failed.", e);
+		}
+	}, 20000);
   </script>
 </body>
 </html>

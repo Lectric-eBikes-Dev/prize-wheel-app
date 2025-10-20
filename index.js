@@ -40,8 +40,32 @@ async function connectToDatabase() {
     console.log('Successfully connected to MongoDB Atlas!');
 
     // Enforce 1 spin per (day,email) at the DB level
-    await spinsCollection.createIndex({ day: 1, email: 1 }, { unique: true });
+    try {
+      await spinsCollection.createIndex({ day: 1, email: 1 }, { unique: true });
+      console.log('Successfully created or verified unique index on (day, email).');
+    } catch (indexErr) {
+      if (indexErr.code === 11000) {
+        // This is the "duplicate key on build" error.
+        console.warn('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        console.warn('--- WARNING: DUPLICATE DATA DETECTED ---');
+        console.warn('MongoDB could not build the unique (day, email) index.');
+        console.warn('This means your "spins" collection has duplicate entries.');
+        console.warn('The app will RUN, but it is NOT protected from duplicate spins until you fix this.');
+        console.warn('To Fix:');
+        console.warn('  1. Go to MongoDB Atlas.');
+        console.warn('  2. Find and DELETE duplicate records from the "spins" collection.');
+        console.warn(`  3. The first duplicate found was: { day: "${indexErr.keyValue?.day}", email: "${indexErr.keyValue?.email}" }`);
+        console.warn('  4. After cleaning, restart the server. The index will build successfully.');
+        console.warn('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        // DO NOT EXIT. Let the app start.
+      } else {
+        // Other index error (e.g., options conflict)
+        console.error('Failed to create index (non-duplicate error):', indexErr);
+        throw indexErr; // Throw to be caught by outer catch
+      }
+    }
   } catch (err) {
+    // This will now catch connection errors OR the re-thrown indexErr
     console.error('Failed to connect to MongoDB', err);
     process.exit(1);
   }
