@@ -359,7 +359,7 @@
         requestAnimationFrame(drawConfetti);
     }
 
-    // Replace the entire startSpin function with this async version
+    // Replace the entire startSpin function
 	async function startSpin() {
 		if (spinActive || spinBtn.disabled) return; // Prevent spins if active or button disabled
 
@@ -380,15 +380,16 @@
 
 			// Block if already spun (and not in debug mode)
 			if (alreadyRecord && !CONFIG.DEBUG) { 
-				console.log('Spin blocked: Limit reached.');
-				showLimitMessage(alreadyRecord);
-				spinBtn.textContent = 'TRY AGAIN TOMORROW'; // Keep disabled, update text
-				return; 
+			console.log('Spin blocked: Limit reached.');
+			showLimitMessage(alreadyRecord);
+			spinBtn.textContent = 'TRY AGAIN TOMORROW'; // <<< Correct text here
+			// Button remains disabled.
+			return; 
 			}
-
+			
 			// --- Spin is Allowed ---
 			console.log('Spin allowed, proceeding...');
-			spinBtn.textContent = 'SPINNING...'; // Button remains disabled
+			spinBtn.textContent = 'SPINNING...'; // Button remains disabled during spin
 
 			const power = holdStart ? (Math.min(2500, Date.now() - holdStart) / 2500) : 0.5;
 			holdStart = 0; 
@@ -407,6 +408,7 @@
 			spinBtn.disabled = false; // Re-enable button on check failure ONLY
 			spinBtn.textContent = 'SPIN';
 		}
+		// No finally block needed here for holding state reset
 	}
 
     // Replace the entire onSpinStop function
@@ -415,10 +417,10 @@
 		const landed = segmentFromAngle(angle) + 1;
 		const win = (landed === guess);
 		const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() };
-
+		
 		pendingResult = null; 
 
-		// Show win/loss results first
+		// Show win/loss feedback first
 		if (win) { celebrate(landed); } else { showLossOverlay(`Landed on ${landed}.`); }
 
 		try {
@@ -427,36 +429,27 @@
 			allSpinsCache.push(savedRecord);
 			$('#dayPicker').value = todayKey();
 			updateFeed(); 
-		} catch(e) {
-			console.warn('Backend save failed', e);
-		} finally {
-			// --- Button Reset Logic ---
-			spinBtn.textContent = 'SPIN'; // Reset text first
-			spinBtn.disabled = false;    // Temporarily enable
-
-			// Re-check the limit to disable button if needed (only if not in debug)
+			
+			// --- Final Button State ---
+			spinBtn.textContent = 'TRY AGAIN TOMORROW'; // Set text after successful spin
+			
 			if (!CONFIG.DEBUG) {
-				try {
-					// Use a short delay to ensure the DOM updates before potentially
-					// showing the limit message again.
-					await new Promise(resolve => setTimeout(resolve, 50)); 
-					
-					const postSpinCheck = await limitCheck(); // Re-check the limit status
-					if (postSpinCheck) {
-						spinBtn.disabled = true; // Disable if they've now used their spin
-						spinBtn.textContent = 'TRY AGAIN TOMORROW'; // <<< SET TEXT HERE
-						showLimitMessage(postSpinCheck); // Re-show limit message
-					} else {
-						spinBtn.disabled = false; // Should not happen unless check failed, safety first
-					}
-				} catch (err) {
-					console.error("Post-spin limit check failed:", err);
-					spinBtn.disabled = false; // Enable if check fails
-				}
+				// If not in debug mode, the spin is done. Disable the button.
+				spinBtn.disabled = true; 
+				showLimitMessage(savedRecord); // Show the limit message
 			} else {
-				spinBtn.disabled = false; // Always re-enable in debug mode
+				// If in debug mode, re-enable the button.
+				spinBtn.disabled = false; 
+				spinBtn.textContent = 'SPIN'; // Reset text for next debug spin
 			}
-		}
+
+		} catch (e) {
+			// Handle errors during saving 
+			console.warn('Backend save failed', e);
+			alert("Spin complete, but failed to save to history. Button re-enabled.");
+			spinBtn.textContent = 'SPIN'; 
+			spinBtn.disabled = false;    
+		} 
 	}
     
     function hideOverlays() {
