@@ -214,6 +214,9 @@
     let pendingResult = null;
     let allSpinsCache = [];
 
+	// Add this constant definition here
+	const TROPHY_SVG_20 = `<svg class="trophy-ic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#F6C453" d="M18 7h2V4h-2V2H6v2H4v3h2c.1 2.5 1.6 4.6 3.7 5.3A5 5 0 0 0 7 17v2H5v3h14v-3h-2v-2c0-2-1.3-3.8-3.1-4.7C16.4 11.6 17.9 9.5 18 7Z"/></svg>`;
+
     const $ = sel => document.querySelector(sel);
     const flapperEl = $('#flapper');
     const spinBtn = $('#spinBtn');
@@ -411,45 +414,49 @@
 		// No finally block needed here for holding state reset
 	}
 
-    // Replace the entire onSpinStop function
+    // Replace the entire onSpinStop function with this corrected version
 	async function onSpinStop() { 
-		const { name, guess } = pendingResult;
+		// Get results immediately
+		const { name, guess } = pendingResult; 
 		const landed = segmentFromAngle(angle) + 1;
 		const win = (landed === guess);
-		const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() };
+		// Create the record *before* clearing pendingResult
+		const record = { name, guess, landed, win, ts: nowTs(), day: todayKey(), fp: fingerprint() }; 
 		
-		pendingResult = null; 
+		pendingResult = null; // Clear pending state
 
 		// Show win/loss feedback first
 		if (win) { celebrate(landed); } else { showLossOverlay(`Landed on ${landed}.`); }
 
 		try {
-			// Save spin result
+			// Save the spin result to the database
 			const savedRecord = await api('POST', '/spins', record);
-			allSpinsCache.push(savedRecord);
-			$('#dayPicker').value = todayKey();
-			updateFeed(); 
+			// Use the returned record (which might include the _id) for consistency
+			allSpinsCache.push(savedRecord || record); // Update local cache
+			$('#dayPicker').value = todayKey(); // Ensure date picker is correct
+			updateFeed(); // Refresh the activity feed
 			
 			// --- Final Button State ---
 			spinBtn.textContent = 'TRY AGAIN TOMORROW'; // Set text after successful spin
 			
 			if (!CONFIG.DEBUG) {
-				// If not in debug mode, the spin is done. Disable the button.
+				// If not in debug mode, the spin is done for the day. Disable the button.
 				spinBtn.disabled = true; 
-				showLimitMessage(savedRecord); // Show the limit message
+				showLimitMessage(savedRecord || record); // Show the limit message using the data we just saved/processed
 			} else {
-				// If in debug mode, re-enable the button.
+				// If in debug mode, re-enable the button for another spin.
 				spinBtn.disabled = false; 
 				spinBtn.textContent = 'SPIN'; // Reset text for next debug spin
 			}
 
 		} catch (e) {
-			// Handle errors during saving 
+			// Handle errors during saving (rare, but possible)
 			console.warn('Backend save failed', e);
 			alert("Spin complete, but failed to save to history. Button re-enabled.");
-			spinBtn.textContent = 'SPIN'; 
-			spinBtn.disabled = false;    
+			spinBtn.textContent = 'SPIN'; // Reset text
+			spinBtn.disabled = false;    // Re-enable button on save failure
 		} 
+		// No complex finally block needed; state handled within try/catch
 	}
     
     function hideOverlays() {
@@ -511,9 +518,8 @@
 			<div class="time">${new Date(s.ts).toLocaleString()}</div>
 			<div>${s.guess || ''}</div>
 			<div>${s.landed || ''}</div>
-			<div>${s.win ? '<svg class="trophy-ic">...</svg>' : ''}</div> 
+			<div>${s.win ? TROPHY_SVG_20 : ''}</div> 
 		`;
-		// Ensure SVG path is complete if you copy-paste
 		return row;
 	}
     
