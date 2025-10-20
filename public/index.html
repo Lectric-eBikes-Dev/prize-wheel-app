@@ -58,7 +58,7 @@
     .overlay{position:fixed; inset:0; display:none; place-items:center; background:rgba(4,6,10,.6); backdrop-filter:blur(2px); z-index:9998; opacity:0; transition:opacity .3s ease-in-out}
     .overlay.show{display:grid; opacity:1}
     /*#confetti{z-index:10000}*/
-    .flash-border{position:fixed; inset:0; pointer-events:none; border:6px solid transparent; border-radius:18px; z-index:9999}
+    .flash-border{position:fixed; inset:0; pointer-events:none; border:6px solid transparent; border-radius:18px; z-index:-1}
     .flash-border.active{animation:flash 1.1s linear infinite}
     @keyframes flash{0%,100%{box-shadow:0 0 0 6px rgba(255,255,255,.05), inset 0 0 0 6px rgba(255,255,255,.05)} 50%{box-shadow:0 0 0 6px rgba(255,215,0,.9),0 0 30px 8px rgba(255,215,0,.6),inset 0 0 0 6px rgba(0,200,255,.7)}}
     .feed{max-height:50vh; overflow:auto}
@@ -496,16 +496,18 @@
       $('#winOverlay').classList.remove('show');
       $('#loseOverlay').classList.remove('show');
       $('#flash').classList.remove('active');
+	  $('#confetti').style.zIndex = -1; // Demote confetti
+	  $('#flash').style.zIndex = -1;
       winSound.pause(); // Stop win sound
       winSound.currentTime = 0; // Rewind win sound
     }
     function celebrate(num) {
       hideOverlays(); // Stops any previous sounds
 	  $('#confetti').style.zIndex = 10000;
+	  $('#flash').style.zIndex = 9999;
       $('#winNumber').textContent = String(num);
       $('#winOverlay').classList.add('show');
       $('#flash').classList.add('active');
-	  $('#confetti').style.zIndex = 1;
       burst();
       if (soundOn) winSound.play(); // Play win sound
       setTimeout(hideOverlays, 34000);
@@ -713,7 +715,13 @@
     spinBtn.addEventListener('mousedown', () => { if (spinActive) return; isHolding = true; holdStart = Date.now(); initAudio(); });
     document.addEventListener('mouseup', () => { if (!isHolding || spinActive) return; isHolding = false; startSpin(); });
     spinBtn.addEventListener('touchstart', e => { e.preventDefault(); if (spinActive) return; isHolding = true; holdStart = Date.now(); initAudio(); }, { passive: false });
-    document.addEventListener('touchend', e => { e.preventDefault(); if (!isHolding || spinActive) return; isHolding = false; startSpin(); }, { passive: false });
+    //document.addEventListener('touchend', e => { e.preventDefault(); if (!isHolding || spinActive) return; isHolding = false; startSpin(); }, { passive: false });
+	document.addEventListener('touchend', e => {
+		if (!isHolding || spinActive) return; // Check if we are in a spin-hold state *first*
+			e.preventDefault(); // <-- SOLUTION: Only prevent default if we're actually firing the spin
+			isHolding = false;
+			startSpin();
+		}, { passive: false });
     
     // Find this block near the end of the script
 	// --- NEW INITIALIZATION LOGIC ---
