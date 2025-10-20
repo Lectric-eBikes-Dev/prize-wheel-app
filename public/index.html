@@ -613,7 +613,7 @@
 
 			if (confirm(`Are you sure you want to delete ${idsToDelete.length} selected record(s)? This cannot be undone.`)) {
 				try {
-					const result = await api('POST', '/api/admin/delete-selected', { ids: idsToDelete });
+					const result = await api('POST', '/admin/delete-selected', { ids: idsToDelete });
 					// Remove deleted items from cache
 					allSpinsCache = allSpinsCache.filter(s => !idsToDelete.includes(s._id));
 					alert(`Successfully deleted ${result.deleted} record(s).`);
@@ -632,7 +632,7 @@
 	  clearTodayBtn.addEventListener('click', async () => {
 		if (confirm('Are you sure you want to clear ONLY TODAY\'S spin data?')) {
 			try {
-				const result = await api('GET', '/api/admin/reset-today');
+				const result = await api('GET', '/admin/reset-today');
 				allSpinsCache = allSpinsCache.filter(s => s.day !== todayKey()); // Update cache
 				alert(`Cleared today's data successfully. Removed ${result.cleared} records.`);
 				location.reload(); // Reload for clean state
